@@ -16,3 +16,6 @@
 # Local env
 .env
 .env.local
+
+# Org profile is its own git repo (StardustMT/.github)
+/.github-org/
