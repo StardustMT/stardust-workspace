@@ -1,0 +1,51 @@
+{
+  "folders": [
+    {
+      "name": "🌟 workspace",
+      "path": "."
+    },
+    {
+      "name": "stardust-pit",
+      "path": "stardust-pit"
+    },
+    {
+      "name": "stardust-core",
+      "path": "stardust-core"
+    },
+    {
+      "name": "stardust-site",
+      "path": "stardust-site"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "stardust-pit": true,
+      "stardust-core": true,
+      "stardust-site": true,
+      "_wiki-source": true
+    },
+    "rust-analyzer.linkedProjects": [
+      "stardust-pit/Cargo.toml",
+      "stardust-core/Cargo.toml"
+    ],
+    "editor.formatOnSave": true,
+    "[rust]": {
+      "editor.defaultFormatter": "rust-lang.rust-analyzer"
+    },
+    "[typescript]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "rust-lang.rust-analyzer",
+      "tauri-apps.tauri-vscode",
+      "biomejs.biome",
+      "astro-build.astro-vscode",
+      "skellock.just"
+    ]
+  }
+}
