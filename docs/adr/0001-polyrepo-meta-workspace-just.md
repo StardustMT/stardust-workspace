@@ -37,7 +37,7 @@ Structure:
 stardust/                  # this meta-workspace repo
 ├── stardust-pit/          # app repo, separately cloned
 ├── stardust-core/         # shared Rust SDK, separately cloned
-├── stardust-site/         # docs + marketing site, separately cloned
+├── stardustmt.github.io/  # docs + marketing site (GitHub Pages org repo), separately cloned
 ├── docs/adr/              # cross-ecosystem ADRs live here
 ├── justfile               # `just bootstrap`, `just update`, `just status`, ...
 ├── scripts/               # bash helpers backing the justfile

@@ -1,7 +1,7 @@
 # Sibling repos — each is its own git repo, not tracked by the workspace.
 /stardust-pit/
 /stardust-core/
-/stardust-site/
+/stardustmt.github.io/
 
 # Temporary migration source.
 /_wiki-source/

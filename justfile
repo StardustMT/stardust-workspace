@@ -62,8 +62,8 @@ test:
 
 # Build the docs site locally.
 docs-dev:
-    cd stardust-site && bun run dev
+    cd stardustmt.github.io && bun run dev
 
 # Build the docs site for production.
 docs-build:
-    cd stardust-site && bun run build
+    cd stardustmt.github.io && bun run build

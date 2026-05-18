@@ -4,10 +4,10 @@ This directory is the **Stardust meta-workspace**. It contains:
 
 - `stardust-pit/` — the live-performance VST host (app)
 - `stardust-core/` — shared Rust libraries / SDK (formerly Overture)
-- `stardust-site/` — marketing site + docs (Astro + Starlight)
+- `stardustmt.github.io/` — marketing site + docs (Astro + Starlight)
 - `docs/adr/` — architecture decision records for the ecosystem
 - `scripts/` — bootstrap, update, and cross-repo orchestration
-- `_wiki-source/` — **temporary** — old GitHub wiki being migrated to `stardust-site/`. Delete after migration is verified.
+- `_wiki-source/` — **temporary** — old GitHub wiki being migrated to `stardustmt.github.io/`. Delete after migration is verified.
 
 Each app/library is its own git repo. This workspace repo orchestrates them but does not own their code.
 

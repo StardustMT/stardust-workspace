@@ -9,7 +9,7 @@ ORG="StardustMT"
 REPOS=(
     "stardust-pit"
     "stardust-core"
-    "stardust-site"
+    "stardustmt.github.io"
 )
 
 cd "$(dirname "$0")/.."

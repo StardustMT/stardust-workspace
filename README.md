@@ -10,10 +10,10 @@ This repo orchestrates the polyrepo. It does not contain application code.
 stardust/
 ├── stardust-pit/       # the live-performance host (app)
 ├── stardust-core/      # shared Rust libraries / SDK
-├── stardust-site/      # marketing site + docs (Astro + Starlight)
+├── stardustmt.github.io/      # marketing site + docs (Astro + Starlight)
 ├── docs/adr/           # architecture decision records
 ├── scripts/            # bootstrap, update, helpers
-├── _wiki-source/       # temporary, being migrated to stardust-site/
+├── _wiki-source/       # temporary, being migrated to stardustmt.github.io/
 ├── justfile            # workspace task runner
 ├── stardust.code-workspace  # VSCode multi-root workspace
 ├── CLAUDE.md           # instructions for AI coding agents

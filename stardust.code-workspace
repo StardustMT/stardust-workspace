@@ -13,15 +13,15 @@
       "path": "stardust-core"
     },
     {
-      "name": "stardust-site",
-      "path": "stardust-site"
+      "name": "stardustmt.github.io",
+      "path": "stardustmt.github.io"
     }
   ],
   "settings": {
     "files.exclude": {
       "stardust-pit": true,
       "stardust-core": true,
-      "stardust-site": true,
+      "stardustmt.github.io": true,
       "_wiki-source": true
     },
     "rust-analyzer.linkedProjects": [
