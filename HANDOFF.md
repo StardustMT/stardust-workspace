@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-20 (post patch-graph data model)
+**Last updated:** 2026-05-20 (post v0.5 patch bridge + macOS launch fix)
 **Purpose:** Read this first in any new chat that's resuming Stardust work,
 especially when switching machines. Bridges what `git log` can't show you
 on its own: where we are in the roadmap, what's in flight, and what
@@ -60,6 +60,24 @@ Phase model from earliest project memory; ticked items have working code on
   + `engine://status` event stream. UI exposes a diagnostic
   `EnginePanel` above the patch editor: pick plugin + MIDI in +
   audio out, hit Start, the plugin plays live.
+- [x] **v0.5 patch-document bridge** — Two Tauri commands:
+  `load_patch(json) -> Result<PatchDocument, PatchError>` and
+  `save_patch(doc) -> Result<String, PatchError>`. Structured errors
+  (`Parse | Validation`) — UI can render parse failures as one
+  message and validation failures as a list. Pure JSON ↔ struct; the
+  React side owns the file dialog via `tauri-plugin-dialog` +
+  `tauri-plugin-fs`. `stardust-patch` exposed via the umbrella
+  `stardust-core` `patch` feature (included in `full`).
+- [x] **v0.5 collateral: macOS launch fix** — on macOS 26 the app
+  segfaulted in `HALDeviceList::GetData` during startup discovery.
+  Two compounding bugs: (1) CLAP `dlopen` and CoreAudio enumeration
+  were running concurrently on tokio workers, (2) cpal 0.16 predates
+  macOS 26 and had no CoreAudio fixes. Fix landed: a
+  `DiscoveryLock` (tokio async mutex) serializes all three `list_*`
+  commands, and each now runs its blocking work via
+  `tokio::task::spawn_blocking`. cpal bumped 0.16 → 0.17.1 in the
+  workspace (0.17.0 reworked the CoreAudio FFI layer). Confirmed
+  launching on macOS 26.3.1 / MacBook Air M1.
 
 ### Whole-ecosystem
 
@@ -72,18 +90,34 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-Nothing mid-extraction. Patch-graph data model just shipped — see
-"Recent commits" below. Both repos pushed.
+Nothing mid-extraction. v0.5 + the macOS launch fix just shipped.
+Pending: commit + push (changes touch both repos), then a new chat.
 
 Loose ends worth picking up next session:
 
+- **v0.6: Open / Save buttons in the patch editor.** Wire the
+  existing `load_patch` / `save_patch` Tauri commands to UI buttons
+  via `tauri-plugin-dialog` (file picker) + `tauri-plugin-fs`
+  (read/write). The Rust side is ready; the UI is not.
+- **Round-trip smoke test still pending.** v0.5 ships the commands
+  but nothing has yet round-tripped a `_seed-data.ts` fixture
+  through `save_patch(load_patch(json))`. Worth doing from devtools
+  before wiring up the UI buttons.
+- **MIDI keyboard testing without hardware.** Today the EnginePanel
+  needs a real MIDI input device. Idea worth pursuing: repurpose
+  the preview keyboard UI element (from the patch editor stories)
+  as an in-app MIDI source so the engine can be exercised without
+  external hardware. Useful for laptop dev + headless CI.
 - **`tsc --noEmit`** in `ui:build` fails on a pre-existing tsconfig
   project-references bug (`tsconfig.node.json` not marked composite).
   Storybook + cargo + `bun dev` all work; just `bun ui:build`'s
   type-check step trips. Predates v0.4.
-- **Manual smoke test on the laptop**: `bun dev`, pick Surge XT (or
-  any CLAP synth), pick MIDI input, hit Start, confirm sound. The
-  POC verified this code path; the Tauri wrapping is new (v0.4).
+- **Plugin metadata scan is eager + uncached.** Every app launch
+  dlopens every installed `.clap`. Fine today, will need an
+  mtime-keyed cache once users have large libraries. Patches
+  themselves don't pull plugins; only the metadata scan does.
+- **cpal `DeviceTrait::name` deprecation warnings (3).** cpal 0.17
+  wants `description()` / `id()` instead. Functional, just noisy.
 - **No graceful shutdown** on the engine thread. The thread is
   reaped when the process exits; `EngineCommand::Shutdown` is
   defined but unused. Fine for now.
@@ -155,36 +189,31 @@ the whole scrollback. To stretch your usage:
 - **Be specific in requests.** "Add X to the engine" is cheaper than
   "what should we do next?" which makes me write long options menus.
 
-## What's the plan now that the data model is in
+## What's the plan now that v0.5 is in
 
-**Next feature: Tauri-bridge `load_patch` / `save_patch` commands
-in `stardust-pit`.** This is Phase 4 from the previous plan. The
-Rust types and serializer landed in `stardust-patch`; now Pit needs
-to actually call them.
+**Next feature: v0.6 — wire `load_patch` / `save_patch` into the
+patch editor UI.** The Rust commands exist and return structured
+`PatchError`; the UI needs Open / Save buttons and a file dialog.
 
 Starting points for the next chat:
 
-- `stardust-core/crates/stardust-patch/` — the data model. Public
-  surface: `PatchDocument::from_json` / `to_json`,
-  `PatchGraph::validate`. Read `src/lib.rs` first.
-- `stardust-pit/src-tauri/Cargo.toml` — add `stardust-patch` as a
-  dep (via the `stardust-core` workspace path, like the other
-  `stardust-*` crates pit already uses).
-- `stardust-pit/src-tauri/src/commands.rs` — pattern to follow:
-  the existing `list_clap_plugins` / `engine_start` commands. New
-  commands: `load_patch(json: String) -> Result<PatchDocument, _>`
-  and `save_patch(doc: PatchDocument) -> Result<String, _>`. Errors
-  surface as `String` for now (Tauri's serializable error model).
+- `stardust-pit/src/src/` — patch editor lives here. Add toolbar
+  buttons that call `load_patch` / `save_patch` via Tauri's
+  `invoke()`. Use `tauri-plugin-dialog` for the file picker and
+  `tauri-plugin-fs` to read/write the JSON; both are already
+  registered.
+- `stardust-pit/src-tauri/src/commands.rs` — the existing
+  `load_patch` / `save_patch` commands. The TS-side error type
+  mirrors `PatchError { kind: "parse" | "validation", ... }`.
+  Render parse errors as a single message; render validation
+  errors as a list.
 - `stardust-pit/src/src/screens/_seed-data.ts` — the TS fixtures.
-  Round-trip a TS fixture through `save_patch(load_patch(json))`
-  and assert deep equality as the v0.5 smoke test.
-- UI keeps owning patch state in TS for now. v0.5 lands the
-  commands + a manual smoke test; v0.6 wires "Open / Save" buttons
-  into the patch editor.
+  Worth doing the round-trip smoke test (devtools console) before
+  wiring the UI, to confirm camelCase serialization holds.
 
-Phase 5 (engine consumes `PatchGraph`) comes after that. Today
-the engine takes `StartConfig { plugin_id, midi, audio }`; next
-it walks a graph (still one plugin in v1, multi-plugin later).
+After v0.6: **Phase 5** — engine consumes `PatchGraph` instead of
+the current `StartConfig { plugin_id, midi, audio }`. Engine
+walks a graph (still one plugin in v1, multi-plugin later).
 
 Other features deferred until after the bridge + engine
 integration:
@@ -192,6 +221,7 @@ integration:
 - Multi-plugin / chain hosting in the engine.
 - Plugin GUI hosting (window embedding — separate platform work).
 - Sample-rate re-activation when cpal negotiates a different rate.
+- Plugin scan caching (mtime-keyed) — see loose ends.
 
 ---
 
@@ -234,6 +264,13 @@ integration:
 
 ## Recent commits worth knowing about
 
+- `stardust-core` `1870592` — expose `stardust-patch` via the
+  umbrella `patch` feature; bump `cpal` 0.16 → 0.17 (CoreAudio
+  refactor needed for macOS 26).
+- `stardust-pit` `c53d30e` — v0.5 `load_patch` / `save_patch`
+  commands with structured `PatchError`; `DiscoveryLock` +
+  `spawn_blocking` around discovery commands to unrace CLAP
+  `dlopen` from CoreAudio enumeration.
 - `stardust-core` `a671e51` — stardust-patch crate (patch-graph data
   model). Per ADR-0004.
 - `stardust-pit` `9cc09ed` — v0.4 engine thread + plugin-host commands.
