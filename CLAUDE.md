@@ -1,5 +1,11 @@
 # Stardust Workspace — Claude Instructions
 
+> **New chat resuming Stardust work?** Read `HANDOFF.md` first — it
+> tracks in-flight work that's mid-extraction, the active roadmap
+> phase, and decisions worth not re-litigating. This file (CLAUDE.md)
+> covers durable conventions; HANDOFF.md covers "what are we doing
+> right now".
+
 This directory is the **Stardust meta-workspace**. It contains:
 
 - `stardust-pit/` — the live-performance VST host (app)
