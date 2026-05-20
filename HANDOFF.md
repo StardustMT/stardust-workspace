@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-20 (post v0.5 patch bridge + macOS launch fix)
+**Last updated:** 2026-05-20 (post v0.6 show-document Open / Save)
 **Purpose:** Read this first in any new chat that's resuming Stardust work,
 especially when switching machines. Bridges what `git log` can't show you
 on its own: where we are in the roadmap, what's in flight, and what
@@ -41,6 +41,15 @@ Phase model from earliest project memory; ticked items have working code on
   Schema-versioned per ADR-0003 (`kind: "stardust.patch"`, v1).
   Collect-all structural validation. 12 tests: 4 fixture round-trips
   from `_seed-data.ts` + 7 validation negatives + header sanity.
+- [x] **`stardust-show` crate** — show document data model (ADR-0005).
+  Per-show structure: songs, patches (each inlining its `PatchGraph`),
+  rig, saved blocks. Re-uses `stardust-patch::Header` rather than
+  factoring a third `stardust-schema` crate. Validation walks every
+  embedded patch graph and wraps errors with patch context. Schema-
+  versioned (`kind: "stardust.show"`, v1). 10 tests: LSOH fixture
+  round-trip + duplicate-id negatives (song/patch/block, patch ids
+  unique show-wide) + wrapped-graph-error context + wrong-kind +
+  newer-schema rejection.
 
 ### `stardust-pit` (Tauri 2 app)
 
@@ -57,7 +66,7 @@ Phase model from earliest project memory; ticked items have working code on
 - [x] **v0.4 engine thread + plugin-host commands** — dedicated
   `engine` module owns a thread that holds the `!Send` CLAP plugin.
   Three Tauri commands (`engine_start`, `engine_stop`, `engine_status`)
-  + `engine://status` event stream. UI exposes a diagnostic
+  plus an `engine://status` event stream. UI exposes a diagnostic
   `EnginePanel` above the patch editor: pick plugin + MIDI in +
   audio out, hit Start, the plugin plays live.
 - [x] **v0.5 patch-document bridge** — Two Tauri commands:
@@ -78,6 +87,19 @@ Phase model from earliest project memory; ticked items have working code on
   `tokio::task::spawn_blocking`. cpal bumped 0.16 → 0.17.1 in the
   workspace (0.17.0 reworked the CoreAudio FFI layer). Confirmed
   launching on macOS 26.3.1 / MacBook Air M1.
+- [x] **v0.6 Open Show / Save Show end-to-end.** Tauri commands
+  `load_show` / `save_show` mirror v0.5's patch ones with structured
+  `ShowError` (parse vs. validation, each error carrying patch
+  context). UI state lifted into a Zustand show store; `PatchEditor`
+  is now controlled (graph + onGraphChange), per-patch undo history
+  resets on patch switch. New `ShowToolbar` in the app-shell header
+  fires Open / Save flows via `tauri-plugin-dialog` +
+  `tauri-plugin-fs` (filter `*.stardustshow`), with a Radix dialog
+  rendering parse errors as one message and validation errors as a
+  list. Capabilities grant `fs:allow-read-text-file` /
+  `fs:allow-write-text-file` scoped to `$HOME` / `$DOCUMENT` /
+  `$DOWNLOAD` / `$DESKTOP`. Round-trip confirmed on macOS 26 / M1:
+  save → tweak → open → state restores cleanly.
 
 ### Whole-ecosystem
 
@@ -90,19 +112,29 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-Nothing mid-extraction. v0.5 + the macOS launch fix just shipped.
-Pending: commit + push (changes touch both repos), then a new chat.
+Nothing mid-extraction. v0.6 just shipped — Open Show / Save Show
+round-trips a whole `.stardustshow` file end-to-end.
 
 Loose ends worth picking up next session:
 
-- **v0.6: Open / Save buttons in the patch editor.** Wire the
-  existing `load_patch` / `save_patch` Tauri commands to UI buttons
-  via `tauri-plugin-dialog` (file picker) + `tauri-plugin-fs`
-  (read/write). The Rust side is ready; the UI is not.
-- **Round-trip smoke test still pending.** v0.5 ships the commands
-  but nothing has yet round-tripped a `_seed-data.ts` fixture
-  through `save_patch(load_patch(json))`. Worth doing from devtools
-  before wiring up the UI buttons.
+- **v0.7: engine consumes a `Patch` from the store.** Today
+  `engine_start` takes a flat `{ bundle_path, plugin_id, midi_input,
+  audio_output }`. Next step: hand the engine the currently-selected
+  `Patch` (graph + meta) from the show store, walk the graph, and
+  start the first `instrument.plugin` node. Still single-plugin v1;
+  multi-plugin chain hosting later. ADR may be required if the
+  engine grows a graph-walker; likely not for one-plugin case.
+- **`load_patch` / `save_patch` are now unused.** v0.5 added them
+  ahead of v0.6; they survived because deletion isn't free in
+  reviewer attention. Drop them next time we touch `commands.rs` if
+  no consumer has appeared.
+- **Dirty-tracking is a dot, not a close-blocker.** Closing the app
+  or opening another show without saving silently discards changes.
+  Fine for the POC; add a modal confirm when this surfaces a real
+  loss-of-work moment.
+- **One show seeded; no "new show" or "recent shows" UI.** The store
+  boots from `_seed-data.ts`; Open Show replaces. No menu to start
+  fresh or jump to a recent file. Add when the workflow demands it.
 - **MIDI keyboard testing without hardware.** Today the EnginePanel
   needs a real MIDI input device. Idea worth pursuing: repurpose
   the preview keyboard UI element (from the patch editor stories)
@@ -189,39 +221,42 @@ the whole scrollback. To stretch your usage:
 - **Be specific in requests.** "Add X to the engine" is cheaper than
   "what should we do next?" which makes me write long options menus.
 
-## What's the plan now that v0.5 is in
+## What's the plan now that v0.6 is in
 
-**Next feature: v0.6 — wire `load_patch` / `save_patch` into the
-patch editor UI.** The Rust commands exist and return structured
-`PatchError`; the UI needs Open / Save buttons and a file dialog.
+**Next feature: v0.7 — engine consumes a `Patch` from the show store.**
+Today `engine_start` takes a flat `StartConfig`. Next step: pass the
+currently-selected `Patch` (graph + meta) from `useShowStore` to the
+engine, walk it server-side, locate the first `instrument.plugin`
+node, and hand it to the existing host. Single-plugin still in v1;
+multi-plugin / chain hosting later.
 
 Starting points for the next chat:
 
-- `stardust-pit/src/src/` — patch editor lives here. Add toolbar
-  buttons that call `load_patch` / `save_patch` via Tauri's
-  `invoke()`. Use `tauri-plugin-dialog` for the file picker and
-  `tauri-plugin-fs` to read/write the JSON; both are already
-  registered.
-- `stardust-pit/src-tauri/src/commands.rs` — the existing
-  `load_patch` / `save_patch` commands. The TS-side error type
-  mirrors `PatchError { kind: "parse" | "validation", ... }`.
-  Render parse errors as a single message; render validation
-  errors as a list.
-- `stardust-pit/src/src/screens/_seed-data.ts` — the TS fixtures.
-  Worth doing the round-trip smoke test (devtools console) before
-  wiring the UI, to confirm camelCase serialization holds.
+- `stardust-pit/src-tauri/src/engine.rs` + `commands.rs` — current
+  `StartConfig` takes raw bundle/plugin IDs. Replace (or
+  supplement) with a `PatchGraph`-consuming variant that walks the
+  graph to find the plugin.
+- `stardust-pit/src/src/state/show-store.ts` — `getDocument()`
+  already produces the full `ShowDocument` shape; the engine only
+  needs the active `Patch` (graph + name) so add a small selector
+  / pass `currentPatch?.graph` to `engineStart`.
+- `stardust-pit/src/src/components/shell/engine-panel.tsx` — today
+  it picks plugin / MIDI / audio from dropdowns. Once the patch
+  graph supplies the plugin, the plugin dropdown collapses to "use
+  patch's plugin" and only MIDI in / audio out remain manual.
+- `stardust-core/crates/stardust-show/src/types.rs` — `PatchGraph`
+  and `Patch` are already exposed; nothing to add in the data model
+  unless the engine wants per-kind config typing (deferred per
+  ADR-0004).
 
-After v0.6: **Phase 5** — engine consumes `PatchGraph` instead of
-the current `StartConfig { plugin_id, midi, audio }`. Engine
-walks a graph (still one plugin in v1, multi-plugin later).
-
-Other features deferred until after the bridge + engine
-integration:
+Other features deferred until after engine-consumes-patches:
 
 - Multi-plugin / chain hosting in the engine.
 - Plugin GUI hosting (window embedding — separate platform work).
 - Sample-rate re-activation when cpal negotiates a different rate.
 - Plugin scan caching (mtime-keyed) — see loose ends.
+- "New show" / "Recent shows" menu — see loose ends.
+- Close-blocker modal on unsaved changes — see loose ends.
 
 ---
 
@@ -264,6 +299,14 @@ integration:
 
 ## Recent commits worth knowing about
 
+- `stardust-pit` `a933d33` — v0.6 Open Show / Save Show end-to-end.
+  Rust `load_show` / `save_show` commands + structured `ShowError`;
+  UI state lifted into a Zustand show store; `PatchEditor` becomes
+  a controlled component; `ShowToolbar` in the app-shell header
+  with file dialog + error dialog. `.stardustshow` extension.
+- `stardust-core` `be1eecb` — stardust-show crate (show data model).
+  Per ADR-0005. Re-uses `stardust-patch::Header`; validation walks
+  every embedded `PatchGraph` and wraps errors with patch context.
 - `stardust-core` `1870592` — expose `stardust-patch` via the
   umbrella `patch` feature; bump `cpal` 0.16 → 0.17 (CoreAudio
   refactor needed for macOS 26).
