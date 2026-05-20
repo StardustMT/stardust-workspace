@@ -161,18 +161,47 @@ the whole scrollback. To stretch your usage:
 
 ## What's the plan once v0.4 is in
 
-Patch graph data model in `stardust-core` (ADR-0003 schema-versioned
-types), then persistence, then the engine starts operating on real
-serialised patches instead of the diagnostic "one plugin, one MIDI,
-one audio out" surface that v0.4 wires up.
+**Next feature: patch graph data model in `stardust-core`.** This
+unblocks the engine consuming real patches instead of the diagnostic
+"pick one plugin, hear it" surface v0.4 wired up.
 
-Next-up nice-to-haves that don't require the data-model work:
+Starting points for the next chat:
 
-- Multi-plugin / chain hosting (the engine thread becomes a graph
-  evaluator instead of a single PluginInstance).
-- Plugin GUI hosting (so Surge XT / sforzando can pick a preset).
-- Sample-rate negotiation on activate so the warning we currently
-  log actually triggers a re-activation at the device's rate.
+- `docs/adr/0003-schema-versioning.md` — the policy ADR for all
+  persisted formats. The patch graph types follow this (explicit
+  `schema_version`, migration framework, etc.). Read it first.
+- A new ADR (next number, probably `0004-patch-graph.md`) should
+  capture the data-model decisions before code lands.
+- `stardust-pit/src/src/components/patch-graph/_types.ts` (200
+  lines) is the live TypeScript shape the React patch editor
+  operates on. The Rust types should be a faithful mirror so the
+  Tauri bridge can serialize across with `#[serde(rename_all =
+  "camelCase")]` and the UI keeps working unchanged.
+- `stardust-pit/src/src/screens/_seed-data.ts` has four hand-built
+  fixture graphs (casual / split-transpose / piano-with-sends /
+  composite-block). Round-tripping those through the Rust types is
+  the bar for "data model is done."
+
+Suggested phases:
+
+1. Write the ADR (data shape, schema_version=1, node kind enum,
+   wire model, validation rules).
+2. New `stardust-patch` crate (or fold into `stardust-core` —
+   ADR decides).
+3. Serde JSON serialize / deserialize round-trip tests against the
+   TS fixtures.
+4. Tauri command `load_patch(json) → PatchGraph` + `save_patch
+   (PatchGraph) → json`. UI keeps client-side state for now; the
+   engine starts consuming serialized patches in the _next_ feature.
+5. Engine takes `PatchGraph` instead of `StartConfig{ plugin_id,
+   midi, audio }`. Right now it hosts one plugin; next, it walks
+   the graph (still one-plugin in v1, multi-plugin later).
+
+Other features deferred until after the data model:
+
+- Multi-plugin / chain hosting in the engine.
+- Plugin GUI hosting (window embedding — separate platform work).
+- Sample-rate re-activation when cpal negotiates a different rate.
 
 ---
 
