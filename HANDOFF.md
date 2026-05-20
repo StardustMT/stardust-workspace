@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-20 (post-v0.3 cleanup)
 **Purpose:** Read this first in any new chat that's resuming Stardust work,
 especially when switching machines. Bridges what `git log` can't show you
 on its own: where we are in the roadmap, what's in flight, and what
@@ -44,8 +44,15 @@ Phase model from earliest project memory; ticked items have working code on
   `list_clap_plugins`, `list_midi_inputs`, `list_audio_outputs`. Wired
   to a diagnostic 3-card view in `App.tsx`. Confirmed working on
   Windows: shows real plugin / MIDI / audio device data.
-- [ ] **v0.3 patch editor in the app** ← **IN FLIGHT, this is what
-  we're mid-extraction on**. See "Currently in flight" below.
+- [x] **v0.3 patch editor in the app** — `bun dev` opens the full
+  Stardust shell with the v5 patch editor + seed data. Client-side
+  state only; engine wiring deferred to v0.4+.
+- [x] **v0.4 engine thread + plugin-host commands** — dedicated
+  `engine` module owns a thread that holds the `!Send` CLAP plugin.
+  Three Tauri commands (`engine_start`, `engine_stop`, `engine_status`)
+  + `engine://status` event stream. UI exposes a diagnostic
+  `EnginePanel` above the patch editor: pick plugin + MIDI in +
+  audio out, hit Start, the plugin plays live.
 
 ### Whole-ecosystem
 
@@ -58,32 +65,32 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-Nothing mid-extraction right now. v0.3 (port v5 patch editor into the
-Tauri app) shipped: `530ac1b` on `stardust-pit`. `bun dev` now opens
-the full Stardust shell — the same UI the storybook iterates on, with
-client-side state.
+Nothing mid-extraction. v0.4 shipped locally (two commits on
+`stardust-pit`, not yet pushed):
 
-Files added during v0.3 (already on `main`):
+- `57e4229` — v0.3 cleanup. `src-tauri/gen/` properly ignored, v4
+  patch editor + story deleted, `-v5` suffix dropped. `_demo-data.ts`
+  kept because perform-* / show-outline stories still use it.
+- _(new commit, see git log)_ — engine thread + plugin-host commands.
+  `src-tauri/src/engine.rs` owns a dedicated OS thread for the
+  `!Send` CLAP plugin instance; `commands.rs` exposes
+  `engine_start` / `engine_stop` / `engine_status`; React side has
+  `EnginePanel` (`src/src/components/shell/engine-panel.tsx`) mounted
+  above the patch editor in `App.tsx`.
 
-- `src/src/screens/_seed-data.ts` — fixtures (songs / graphs / rigs).
-- `src/src/screens/patch-editor-v5.tsx` — the `PatchEditor` component.
-  Named `-v5` because the legacy v4 file at `screens/patch-editor.tsx`
-  is still imported by `program-patch-editor.stories.tsx`. **Cleanup
-  candidate**: delete the v4 file + its story + `_demo-data.ts` once
-  we're confident nothing wants the old design as reference. Three
-  files, ~75 KB total.
-- `src/src/screens/program-patch-editor-v5.stories.tsx` — slimmed to
-  ~80 lines (was 2530).
-- `App.tsx` — renders `<PatchEditor>` with the casual cold-open seed.
+Loose ends worth picking up next session:
 
-Loose ends from v0.3 worth fixing in the next session:
-
-- `src-tauri/gen/` was accidentally committed. Add to `.gitignore`,
-  remove with `git rm -r --cached src-tauri/gen`.
-- The v4 cleanup above.
-- Storybook's `_seed-data.ts` and the v5 story share names with the
-  v4 leftovers (`_demo-data.ts`, `program-patch-editor.stories.tsx`).
-  Once v4 is gone, drop the `-v5` suffix everywhere for cleanliness.
+- **Push** — both new commits are local. Push before laptop work.
+- **`tsc --noEmit`** in `ui:build` fails on a pre-existing tsconfig
+  project-references bug (`tsconfig.node.json` not marked composite).
+  Storybook + cargo + `bun dev` all work; just `bun ui:build`'s
+  type-check step trips. Predates v0.4.
+- **Manual smoke test on the laptop**: `bun dev`, pick Surge XT (or
+  any CLAP synth), pick MIDI input, hit Start, confirm sound. The
+  POC verified this code path; the Tauri wrapping is new.
+- **No graceful shutdown.** The engine thread is reaped when the
+  process exits; `EngineCommand::Shutdown` is defined but unused.
+  Fine for now.
 
 ---
 
@@ -152,17 +159,20 @@ the whole scrollback. To stretch your usage:
 - **Be specific in requests.** "Add X to the engine" is cheaper than
   "what should we do next?" which makes me write long options menus.
 
-## What's the plan once v0.3 is in
+## What's the plan once v0.4 is in
 
-Engine thread + start/stop Tauri commands so the React UI can actually
-host a plugin live (basically `stardust-poc-host-clap` wrapped as a
-command + GUI). That requires owning a dedicated engine thread inside
-stardust-pit because `PluginInstance<H>` is `!Send` — Tauri commands
-talk to it via channels.
+Patch graph data model in `stardust-core` (ADR-0003 schema-versioned
+types), then persistence, then the engine starts operating on real
+serialised patches instead of the diagnostic "one plugin, one MIDI,
+one audio out" surface that v0.4 wires up.
 
-After that: patch graph data model in `stardust-core` (ADR-0003
-schema-versioned types), then persistence, then the engine starts
-operating on real serialised patches instead of fake client-state.
+Next-up nice-to-haves that don't require the data-model work:
+
+- Multi-plugin / chain hosting (the engine thread becomes a graph
+  evaluator instead of a single PluginInstance).
+- Plugin GUI hosting (so Surge XT / sforzando can pick a preset).
+- Sample-rate negotiation on activate so the warning we currently
+  log actually triggers a re-activation at the device's rate.
 
 ---
 
@@ -205,6 +215,8 @@ operating on real serialised patches instead of fake client-state.
 
 ## Recent commits worth knowing about
 
+- `stardust-pit` _(unpushed)_ — v0.4 engine thread + plugin-host commands.
+- `stardust-pit` `57e4229` — v0.3 cleanup (untrack gen, drop v4, rename v5).
 - `stardust-pit` `530ac1b` — v0.3 patch editor in the Tauri app.
 - `stardust-pit` `7818cf8` — v0.2 Tauri bridge with 3 read-only commands.
 - `stardust-pit` `a8d6a01` — Switched scripts to `@tauri-apps/cli`.
