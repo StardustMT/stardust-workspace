@@ -17,5 +17,8 @@
 .env
 .env.local
 
+# Personal learning notes — not for the repo.
+/GUIDEBOOK.md
+
 # Org profile is its own git repo (StardustMT/.github)
 /.github-org/
