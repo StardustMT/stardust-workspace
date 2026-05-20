@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-20 (post-v0.3 cleanup)
+**Last updated:** 2026-05-20 (post patch-graph data model)
 **Purpose:** Read this first in any new chat that's resuming Stardust work,
 especially when switching machines. Bridges what `git log` can't show you
 on its own: where we are in the roadmap, what's in flight, and what
@@ -34,6 +34,13 @@ Phase model from earliest project memory; ticked items have working code on
 - [x] **Shared envelope primitive** — `stardust-dsp::Envelope` (ADSR)
   used by both the sine synth and stardust-sfz. Template for future
   cross-utilised DSP primitives.
+- [x] **`stardust-patch` crate** — patch-graph data model (ADR-0004).
+  Pure data; faithful Rust mirror of the TS shape in
+  `stardust-pit/src/src/components/patch-graph/_types.ts`. Serializes
+  as camelCase JSON so the Tauri bridge round-trips without adapters.
+  Schema-versioned per ADR-0003 (`kind: "stardust.patch"`, v1).
+  Collect-all structural validation. 12 tests: 4 fixture round-trips
+  from `_seed-data.ts` + 7 validation negatives + header sanity.
 
 ### `stardust-pit` (Tauri 2 app)
 
@@ -65,32 +72,21 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-Nothing mid-extraction. v0.4 shipped locally (two commits on
-`stardust-pit`, not yet pushed):
-
-- `57e4229` — v0.3 cleanup. `src-tauri/gen/` properly ignored, v4
-  patch editor + story deleted, `-v5` suffix dropped. `_demo-data.ts`
-  kept because perform-* / show-outline stories still use it.
-- _(new commit, see git log)_ — engine thread + plugin-host commands.
-  `src-tauri/src/engine.rs` owns a dedicated OS thread for the
-  `!Send` CLAP plugin instance; `commands.rs` exposes
-  `engine_start` / `engine_stop` / `engine_status`; React side has
-  `EnginePanel` (`src/src/components/shell/engine-panel.tsx`) mounted
-  above the patch editor in `App.tsx`.
+Nothing mid-extraction. Patch-graph data model just shipped — see
+"Recent commits" below. Both repos pushed.
 
 Loose ends worth picking up next session:
 
-- **Push** — both new commits are local. Push before laptop work.
 - **`tsc --noEmit`** in `ui:build` fails on a pre-existing tsconfig
   project-references bug (`tsconfig.node.json` not marked composite).
   Storybook + cargo + `bun dev` all work; just `bun ui:build`'s
   type-check step trips. Predates v0.4.
 - **Manual smoke test on the laptop**: `bun dev`, pick Surge XT (or
   any CLAP synth), pick MIDI input, hit Start, confirm sound. The
-  POC verified this code path; the Tauri wrapping is new.
-- **No graceful shutdown.** The engine thread is reaped when the
-  process exits; `EngineCommand::Shutdown` is defined but unused.
-  Fine for now.
+  POC verified this code path; the Tauri wrapping is new (v0.4).
+- **No graceful shutdown** on the engine thread. The thread is
+  reaped when the process exits; `EngineCommand::Shutdown` is
+  defined but unused. Fine for now.
 
 ---
 
@@ -159,45 +155,39 @@ the whole scrollback. To stretch your usage:
 - **Be specific in requests.** "Add X to the engine" is cheaper than
   "what should we do next?" which makes me write long options menus.
 
-## What's the plan once v0.4 is in
+## What's the plan now that the data model is in
 
-**Next feature: patch graph data model in `stardust-core`.** This
-unblocks the engine consuming real patches instead of the diagnostic
-"pick one plugin, hear it" surface v0.4 wired up.
+**Next feature: Tauri-bridge `load_patch` / `save_patch` commands
+in `stardust-pit`.** This is Phase 4 from the previous plan. The
+Rust types and serializer landed in `stardust-patch`; now Pit needs
+to actually call them.
 
 Starting points for the next chat:
 
-- `docs/adr/0003-schema-versioning.md` — the policy ADR for all
-  persisted formats. The patch graph types follow this (explicit
-  `schema_version`, migration framework, etc.). Read it first.
-- A new ADR (next number, probably `0004-patch-graph.md`) should
-  capture the data-model decisions before code lands.
-- `stardust-pit/src/src/components/patch-graph/_types.ts` (200
-  lines) is the live TypeScript shape the React patch editor
-  operates on. The Rust types should be a faithful mirror so the
-  Tauri bridge can serialize across with `#[serde(rename_all =
-  "camelCase")]` and the UI keeps working unchanged.
-- `stardust-pit/src/src/screens/_seed-data.ts` has four hand-built
-  fixture graphs (casual / split-transpose / piano-with-sends /
-  composite-block). Round-tripping those through the Rust types is
-  the bar for "data model is done."
+- `stardust-core/crates/stardust-patch/` — the data model. Public
+  surface: `PatchDocument::from_json` / `to_json`,
+  `PatchGraph::validate`. Read `src/lib.rs` first.
+- `stardust-pit/src-tauri/Cargo.toml` — add `stardust-patch` as a
+  dep (via the `stardust-core` workspace path, like the other
+  `stardust-*` crates pit already uses).
+- `stardust-pit/src-tauri/src/commands.rs` — pattern to follow:
+  the existing `list_clap_plugins` / `engine_start` commands. New
+  commands: `load_patch(json: String) -> Result<PatchDocument, _>`
+  and `save_patch(doc: PatchDocument) -> Result<String, _>`. Errors
+  surface as `String` for now (Tauri's serializable error model).
+- `stardust-pit/src/src/screens/_seed-data.ts` — the TS fixtures.
+  Round-trip a TS fixture through `save_patch(load_patch(json))`
+  and assert deep equality as the v0.5 smoke test.
+- UI keeps owning patch state in TS for now. v0.5 lands the
+  commands + a manual smoke test; v0.6 wires "Open / Save" buttons
+  into the patch editor.
 
-Suggested phases:
+Phase 5 (engine consumes `PatchGraph`) comes after that. Today
+the engine takes `StartConfig { plugin_id, midi, audio }`; next
+it walks a graph (still one plugin in v1, multi-plugin later).
 
-1. Write the ADR (data shape, schema_version=1, node kind enum,
-   wire model, validation rules).
-2. New `stardust-patch` crate (or fold into `stardust-core` —
-   ADR decides).
-3. Serde JSON serialize / deserialize round-trip tests against the
-   TS fixtures.
-4. Tauri command `load_patch(json) → PatchGraph` + `save_patch
-   (PatchGraph) → json`. UI keeps client-side state for now; the
-   engine starts consuming serialized patches in the _next_ feature.
-5. Engine takes `PatchGraph` instead of `StartConfig{ plugin_id,
-   midi, audio }`. Right now it hosts one plugin; next, it walks
-   the graph (still one-plugin in v1, multi-plugin later).
-
-Other features deferred until after the data model:
+Other features deferred until after the bridge + engine
+integration:
 
 - Multi-plugin / chain hosting in the engine.
 - Plugin GUI hosting (window embedding — separate platform work).
@@ -244,12 +234,12 @@ Other features deferred until after the data model:
 
 ## Recent commits worth knowing about
 
-- `stardust-pit` _(unpushed)_ — v0.4 engine thread + plugin-host commands.
+- `stardust-core` `a671e51` — stardust-patch crate (patch-graph data
+  model). Per ADR-0004.
+- `stardust-pit` `9cc09ed` — v0.4 engine thread + plugin-host commands.
 - `stardust-pit` `57e4229` — v0.3 cleanup (untrack gen, drop v4, rename v5).
 - `stardust-pit` `530ac1b` — v0.3 patch editor in the Tauri app.
 - `stardust-pit` `7818cf8` — v0.2 Tauri bridge with 3 read-only commands.
 - `stardust-pit` `a8d6a01` — Switched scripts to `@tauri-apps/cli`.
-- `stardust-pit` `a2b7f29` — Placeholder icons.
-- `stardust-pit` `7dcbe2c` — `macOSPrivateApi` config to match Cargo features.
 - `stardust-core` `54b7ad4` — Phase 1.7 CLAP host bin.
 - `stardust-core` `5a31bc1` — Recursive CLAP scanner.
