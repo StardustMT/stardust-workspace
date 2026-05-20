@@ -58,51 +58,99 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-**Goal:** Port the Storybook v5 patch editor into the real Tauri app, so
-`bun dev` shows the actual Stardust UI instead of the v0.2 diagnostic
-view. Backed by client-side state for now — engine wiring lands later.
+Nothing mid-extraction right now. v0.3 (port v5 patch editor into the
+Tauri app) shipped: `530ac1b` on `stardust-pit`. `bun dev` now opens
+the full Stardust shell — the same UI the storybook iterates on, with
+client-side state.
 
-**File-by-file plan:**
+Files added during v0.3 (already on `main`):
 
-1. ✅ `src/src/screens/_seed-data.ts` — extracted. Pure data:
-   `LSOH_SONGS`, `casualPatchGraph`, `transposedSplitPatchGraph`,
-   `pianoWithSendsPatchGraph`, `compositeBlockPatchGraph`,
-   `DEFAULT_RIG`, `FULL_RIG`. No React imports.
-2. ⏳ `src/src/screens/patch-editor.tsx` — the `PatchEditor` component
-   itself. **THIS IS THE BLOCKED STEP.** The Write tool wanted me to
-   Read the (non-existent) file first; that's a harness quirk. Workaround:
-   `Bash: touch src/src/screens/patch-editor.tsx` to create the empty
-   file, then Read it (will show empty), then Write the content.
-   Contents to write: take everything from `program-patch-editor-v5.stories.tsx`
-   from line 300 (Zone defaults section) through end of file (2530), with:
-   - Top of file: imports preserved minus `@storybook/react` and `makeNode`
-     usage (now lives in seed-data).
-   - Rename `PatchEditorShell` → `PatchEditor`, **export** it.
-   - Add `showName: string` + `songs: ShowOutlineSong[]` to props.
-   - Inside the component, replace hardcoded `"Little Shop of Horrors"`
-     and `LSOH_SONGS` references with the new props (two sites: lines
-     1196 + 1199–1200 of the original file).
-3. Slim `screens/program-patch-editor-v5.stories.tsx` — keep only the
-   `Meta` declaration + 4 stories, each rendering `<PatchEditor>` with
-   seed-data imports. ~60 lines total instead of 2530.
-4. Replace `App.tsx` body with `<PatchEditor showName="Little Shop of
-   Horrors" songs={LSOH_SONGS} graph={casualPatchGraph()}
-   selectedPatchId="p1.1" patchName="Cold open" songName="Prologue"
-   rigSources={DEFAULT_RIG} />`.
-5. `bun run build-storybook` to verify, then commit + push.
+- `src/src/screens/_seed-data.ts` — fixtures (songs / graphs / rigs).
+- `src/src/screens/patch-editor-v5.tsx` — the `PatchEditor` component.
+  Named `-v5` because the legacy v4 file at `screens/patch-editor.tsx`
+  is still imported by `program-patch-editor.stories.tsx`. **Cleanup
+  candidate**: delete the v4 file + its story + `_demo-data.ts` once
+  we're confident nothing wants the old design as reference. Three
+  files, ~75 KB total.
+- `src/src/screens/program-patch-editor-v5.stories.tsx` — slimmed to
+  ~80 lines (was 2530).
+- `App.tsx` — renders `<PatchEditor>` with the casual cold-open seed.
 
-**Risks for the next session:**
+Loose ends from v0.3 worth fixing in the next session:
 
-- After the file split, the storybook should build clean (everything
-  is the same code, just relocated). If it doesn't, check imports in
-  the new `patch-editor.tsx` — the four most likely missing imports
-  are `makeNode` (only needed by seed-data, drop from patch-editor),
-  `Story / Meta / StoryObj` (only needed by stories file).
-- The hardcoded `"Little Shop of Horrors"` in `PatchEditorShell` is
-  duplicated at two sites — both need replacing with the prop. Easy
-  to miss the second one if you only grep once.
+- `src-tauri/gen/` was accidentally committed. Add to `.gitignore`,
+  remove with `git rm -r --cached src-tauri/gen`.
+- The v4 cleanup above.
+- Storybook's `_seed-data.ts` and the v5 story share names with the
+  v4 leftovers (`_demo-data.ts`, `program-patch-editor.stories.tsx`).
+  Once v4 is gone, drop the `-v5` suffix everywhere for cleanliness.
 
 ---
+
+## Bootstrap prompt for a new chat
+
+When starting a fresh Claude Code chat (on any machine, after `/clear`,
+or to begin the next feature), paste this verbatim into the first
+message:
+
+> Resuming Stardust work. Read `HANDOFF.md` (and `CLAUDE.md` for
+> conventions). Tell me what shipped most recently, what loose ends are
+> open, and what the next obvious feature is. Don't start any work yet —
+> wait for me to pick.
+
+That gets me oriented in one round trip without me re-reading half the
+codebase or asking ten clarifying questions.
+
+If you want to jump straight into a specific known-next feature,
+substitute that for the last sentence:
+
+> Resuming Stardust work. Read `HANDOFF.md` (and `CLAUDE.md` for
+> conventions). Then push on `[feature name]`. Tell me the plan before
+> you start coding.
+
+## Resuming on a different machine
+
+Steps to pick up cleanly on the laptop:
+
+```bash
+# 1. Pull every repo
+cd ~/projects/stardust && git pull   # this meta-repo (CLAUDE.md + HANDOFF.md)
+cd stardust-pit && git pull
+cd ../stardust-core && git pull
+
+# 2. JS deps (only once per machine + after package.json changes)
+cd ../stardust-pit && bun install
+
+# 3. Verify everything works
+bun ui:build-storybook     # frontend TS compile
+cd ../stardust-core && cargo check --workspace   # rust
+
+# 4. Run the actual app
+cd ../stardust-pit && bun dev
+```
+
+Then **open a fresh Claude Code chat** in the meta-workspace and say
+something like: "Resuming Stardust work, read HANDOFF.md". The
+CLAUDE.md callout will guide me there automatically too.
+
+You do NOT need to copy memory files across — the durable preferences
+in this repo's CLAUDE.md + HANDOFF.md are enough. (Memory files are
+mostly redundant with these now.)
+
+## Working efficiently with Claude on this project
+
+Token cost on a single chat compounds — every new message pays for
+the whole scrollback. To stretch your usage:
+
+- **Start a fresh chat per chunk of work** (e.g., per phase / per
+  feature). HANDOFF.md is the bootstrap.
+- **End a chat by asking me to update HANDOFF.md** with the new state
+  before you `/clear`.
+- **Don't `/clear` mid-task** without writing state to HANDOFF first.
+- **CLAUDE.md's terseness directives** keep my prose minimal — don't
+  remove them.
+- **Be specific in requests.** "Add X to the engine" is cheaper than
+  "what should we do next?" which makes me write long options menus.
 
 ## What's the plan once v0.3 is in
 
@@ -157,6 +205,7 @@ operating on real serialised patches instead of fake client-state.
 
 ## Recent commits worth knowing about
 
+- `stardust-pit` `530ac1b` — v0.3 patch editor in the Tauri app.
 - `stardust-pit` `7818cf8` — v0.2 Tauri bridge with 3 read-only commands.
 - `stardust-pit` `a8d6a01` — Switched scripts to `@tauri-apps/cli`.
 - `stardust-pit` `a2b7f29` — Placeholder icons.

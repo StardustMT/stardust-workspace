@@ -5,6 +5,30 @@
 > phase, and decisions worth not re-litigating. This file (CLAUDE.md)
 > covers durable conventions; HANDOFF.md covers "what are we doing
 > right now".
+>
+> **Token efficiency directives** (the user pays per token, threads
+> grow expensive fast):
+>
+> - **Be terse.** Skip explanatory framing. Get to the action. End-of-
+>   turn summary = one sentence max.
+> - **Prefer `Edit` over `Write`** for changes to existing files —
+>   Edit sends just the diff. Only use `Write` for genuinely new files
+>   or full rewrites.
+> - **Don't re-read files you've already seen this session.** Use what's
+>   in context.
+> - **Don't narrate the plan before each step** — the user can see the
+>   tool calls.
+> - **Suggest new chats** when the user starts a meaningfully different
+>   chunk of work; long threads dominate cost.
+> - **When a feature ships, stop and hand off.** As soon as a discrete
+>   piece of work is done (committed + pushed + working), do this in
+>   order: (1) explicitly tell the user "feature X is complete";
+>   (2) update `HANDOFF.md` with the new state — bump the worklog,
+>   move "in flight" items to "shipped", record new commits worth
+>   knowing, list any loose ends; (3) point the user at the "Bootstrap
+>   prompt for a new chat" section of HANDOFF.md and tell them to
+>   `/clear` (or open a new chat) before the next feature. Do NOT
+>   automatically start the next feature in the same thread.
 
 This directory is the **Stardust meta-workspace**. It contains:
 
