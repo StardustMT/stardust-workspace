@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-22 (post v0.7 engine-consumes-patch + on-screen MIDI)
+**Last updated:** 2026-05-22 (post v0.8a always-on engine)
 **Purpose:** Read this first in any new chat that's resuming Stardust work,
 especially when switching machines. Bridges what `git log` can't show you
 on its own: where we are in the roadmap, what's in flight, and what
@@ -118,6 +118,19 @@ Phase model from earliest project memory; ticked items have working code on
   `noInstrumentNode | missingPluginConfig | engine` variants.
   Cleanup: v0.5's orphaned `load_patch` / `save_patch` commands
   removed in the same diff.
+- [x] **v0.8a always-on engine driven by the current patch.** Start /
+  Stop buttons removed from `EnginePanel`. Engine state is now a pure
+  function of (current patch, plugin choice, MIDI input, audio output);
+  a sync effect calls `engine_start_from_patch` whenever the patch has
+  a hostable plugin and `engine_stop` otherwise. Switching patches in
+  the outline rebinds the hosted plugin without user action; switching
+  to a patch with no instrument node or no plugin choice silences the
+  engine. MIDI input + audio output dropdowns are live now — changing
+  either rebinds with the new routing. No Rust changes: the engine's
+  `Start` command already tears down any prior plugin before bringing
+  up the next. Drive-by fix: `tauri.ts` had `engineStartFromPatch`'s
+  `midiInput` typed as `string` but Rust accepts `Option<String>` and
+  the existing call already passed `null` — widened to `string | null`.
 
 ### Whole-ecosystem
 
@@ -130,17 +143,27 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-Nothing mid-extraction. v0.7 just shipped — engine takes the active
-patch and the on-screen keyboard plays without hardware.
+Nothing mid-extraction. v0.8a just shipped — engine is always-on and
+follows the selected patch automatically.
 
 Loose ends worth picking up next session:
 
-- **Patch-switch while engine is running is a no-op for the plugin.**
-  Today the engine binds the plugin at Start and keeps hosting it
-  until Stop. Switching to a different patch in the outline doesn't
-  re-bind. Acceptable for v0.7 (still single-plugin), but the
-  obvious next step is "active patch change → engine swaps plugin".
-  Multi-plugin chain hosting is the strictly larger version of this.
+- **Single-plugin still.** The engine walks the patch graph for the
+  first `instrument.plugin` node and ignores the rest. Multi-plugin
+  chain hosting (v0.8b) is the obvious next: engine takes the whole
+  graph and wires audio nodes / effects / splits. Likely needs an
+  ADR for the engine graph-walker abstraction.
+- **Rebind glitches audio briefly.** Each patch switch fully drops the
+  prior plugin then loads + activates the next. The audio thread
+  pauses while CLAP init runs (varies by plugin — Surge XT is fast,
+  others can take 100s of ms). Acceptable for a dev tool; needs a
+  smarter strategy (preload, crossfade, or warm-pool) before live use.
+  Fast click-through of multiple patches also queues serial rebinds.
+- **Live device change tears down the plugin.** Changing the MIDI
+  input or audio output dropdown while a plugin is running goes
+  through the same `Start`-tear-down path. A dedicated
+  `engine_rebind_routing` command that only swaps the cpal stream /
+  midir input without reloading the plugin would be nicer.
 - **Plugin GUI hosting still missing.** The PluginUIDock has a
   disabled "Open full plugin UI" button — needs CLAP GUI
   extension + native window embedding (separate platform work per OS).
@@ -241,21 +264,20 @@ the whole scrollback. To stretch your usage:
 - **Be specific in requests.** "Add X to the engine" is cheaper than
   "what should we do next?" which makes me write long options menus.
 
-## What's the plan now that v0.7 is in
+## What's the plan now that v0.8a is in
 
 No single mandatory next feature. Some natural candidates in rough
 order of payoff vs. cost:
 
-- **v0.8a — active-patch change re-binds the engine.** Today the
-  engine binds a plugin at Start and keeps it until Stop. Wire
-  patch-switch in the show outline (or a stored `activePatchId`
-  separate from `currentPatchId`) to swap the plugin under a running
-  engine. Strictly smaller than multi-plugin chain hosting and
-  unlocks live "next song" workflows.
 - **v0.8b — multi-plugin chain hosting.** Engine walks the patch
   graph beyond the first instrument and connects audio nodes,
-  effects, splits. Likely needs an ADR (engine graph-walker). Big
-  feature; do active-patch swap first.
+  effects, splits. Likely needs an ADR (engine graph-walker).
+  Largest of the remaining audio-path items; unlocks the rest of
+  what the patch editor already lets users draw.
+- **`engine_rebind_routing` command.** Today, changing MIDI input
+  or audio output mid-session tears down the plugin and reloads.
+  A targeted command that only swaps the cpal stream / midir input
+  in place would remove the audio glitch on routing changes.
 - **Plugin scan caching (mtime-keyed).** Currently `usePluginScan`
   memoises per session but every cold start dlopens every `.clap`.
   Small infra fix; gets nicer the more plugins users install.
@@ -312,6 +334,14 @@ order of payoff vs. cost:
 
 ## Recent commits worth knowing about
 
+- `stardust-pit` `d88b8d9` — v0.8a always-on engine. Start/Stop
+  buttons removed; EnginePanel's sync effect fires
+  `engine_start_from_patch` or `engine_stop` based on (current patch,
+  plugin choice, MIDI input, audio output). Patch-switch rebinds the
+  hosted plugin; switch-to-empty-patch silences. Live MIDI/audio
+  routing changes also rebind. No Rust changes. `tauri.ts` type fix
+  on `engineStartFromPatch.midiInput` (`string` → `string | null`)
+  to match Rust's `Option<String>`.
 - `stardust-pit` `4e42c7d` — v0.7 engine consumes a `Patch` +
   on-screen MIDI playback. `engine_start_from_patch` walks the
   active patch's graph for the first `instrument.plugin` and lifts
