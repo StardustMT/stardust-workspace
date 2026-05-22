@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-20 (post v0.6 show-document Open / Save)
+**Last updated:** 2026-05-22 (post v0.7 engine-consumes-patch + on-screen MIDI)
 **Purpose:** Read this first in any new chat that's resuming Stardust work,
 especially when switching machines. Bridges what `git log` can't show you
 on its own: where we are in the roadmap, what's in flight, and what
@@ -100,6 +100,24 @@ Phase model from earliest project memory; ticked items have working code on
   `fs:allow-write-text-file` scoped to `$HOME` / `$DOCUMENT` /
   `$DOWNLOAD` / `$DESKTOP`. Round-trip confirmed on macOS 26 / M1:
   save → tweak → open → state restores cleanly.
+- [x] **v0.7 engine consumes a `Patch` from the show store + on-screen
+  MIDI playback.** `engine_start` replaced by
+  `engine_start_from_patch(patch, midiInput?, audioOutput?)` — Rust
+  walks the patch graph for the first `instrument.plugin` node and
+  lifts its plugin choice into `StartConfig`. `instrument.plugin`
+  config now carries real `{ bundlePath, pluginId, pluginName,
+  pluginVendor }` (no more fictional `pluginUri`); a Radix Select
+  picker on the node's Settings pane writes those keys back. Shared
+  `usePluginScan()` zustand store so EnginePanel + picker share one
+  scan. Engine grew a second SPSC ring + `engine_send_midi(msg)`
+  command for UI-originated notes; the live-preview keyboard is now
+  a click/drag-playable MIDI source (`elementFromPoint` hit-test
+  during drag, pseudo-3D depressed-key look via translateY + inset
+  shadow). Hardware MIDI input is now optional — "On-screen keyboard
+  only" is a valid Start path. Structured `EngineStartError` with
+  `noInstrumentNode | missingPluginConfig | engine` variants.
+  Cleanup: v0.5's orphaned `load_patch` / `save_patch` commands
+  removed in the same diff.
 
 ### Whole-ecosystem
 
@@ -112,22 +130,25 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-Nothing mid-extraction. v0.6 just shipped — Open Show / Save Show
-round-trips a whole `.stardustshow` file end-to-end.
+Nothing mid-extraction. v0.7 just shipped — engine takes the active
+patch and the on-screen keyboard plays without hardware.
 
 Loose ends worth picking up next session:
 
-- **v0.7: engine consumes a `Patch` from the store.** Today
-  `engine_start` takes a flat `{ bundle_path, plugin_id, midi_input,
-  audio_output }`. Next step: hand the engine the currently-selected
-  `Patch` (graph + meta) from the show store, walk the graph, and
-  start the first `instrument.plugin` node. Still single-plugin v1;
-  multi-plugin chain hosting later. ADR may be required if the
-  engine grows a graph-walker; likely not for one-plugin case.
-- **`load_patch` / `save_patch` are now unused.** v0.5 added them
-  ahead of v0.6; they survived because deletion isn't free in
-  reviewer attention. Drop them next time we touch `commands.rs` if
-  no consumer has appeared.
+- **Patch-switch while engine is running is a no-op for the plugin.**
+  Today the engine binds the plugin at Start and keeps hosting it
+  until Stop. Switching to a different patch in the outline doesn't
+  re-bind. Acceptable for v0.7 (still single-plugin), but the
+  obvious next step is "active patch change → engine swaps plugin".
+  Multi-plugin chain hosting is the strictly larger version of this.
+- **Plugin GUI hosting still missing.** The PluginUIDock has a
+  disabled "Open full plugin UI" button — needs CLAP GUI
+  extension + native window embedding (separate platform work per OS).
+- **Velocity / sustain / QWERTY on the on-screen keyboard.** Fixed
+  velocity 100, channel 0, no sustain pedal source, no
+  computer-keyboard mapping. Easy follow-ups; skipped to keep v0.7
+  focused. Mainstage-style click-position-as-velocity is fancier
+  but trivial once we want it.
 - **Dirty-tracking is a dot, not a close-blocker.** Closing the app
   or opening another show without saving silently discards changes.
   Fine for the POC; add a modal confirm when this surfaces a real
@@ -135,24 +156,23 @@ Loose ends worth picking up next session:
 - **One show seeded; no "new show" or "recent shows" UI.** The store
   boots from `_seed-data.ts`; Open Show replaces. No menu to start
   fresh or jump to a recent file. Add when the workflow demands it.
-- **MIDI keyboard testing without hardware.** Today the EnginePanel
-  needs a real MIDI input device. Idea worth pursuing: repurpose
-  the preview keyboard UI element (from the patch editor stories)
-  as an in-app MIDI source so the engine can be exercised without
-  external hardware. Useful for laptop dev + headless CI.
 - **`tsc --noEmit`** in `ui:build` fails on a pre-existing tsconfig
   project-references bug (`tsconfig.node.json` not marked composite).
   Storybook + cargo + `bun dev` all work; just `bun ui:build`'s
   type-check step trips. Predates v0.4.
 - **Plugin metadata scan is eager + uncached.** Every app launch
-  dlopens every installed `.clap`. Fine today, will need an
-  mtime-keyed cache once users have large libraries. Patches
-  themselves don't pull plugins; only the metadata scan does.
+  dlopens every installed `.clap`. `usePluginScan()` now memoises
+  for the session, but a cold start still hits everything. Will
+  need an mtime-keyed cache once users have large libraries.
 - **cpal `DeviceTrait::name` deprecation warnings (3).** cpal 0.17
   wants `description()` / `id()` instead. Functional, just noisy.
 - **No graceful shutdown** on the engine thread. The thread is
   reaped when the process exits; `EngineCommand::Shutdown` is
   defined but unused. Fine for now.
+- **Storybook PluginUIDock has no plugins.** The picker calls
+  `list_clap_plugins` via Tauri — outside Tauri the dropdown is
+  empty. Picker still renders; just nothing to choose. Real flow
+  works in `bun dev`.
 
 ---
 
@@ -221,42 +241,35 @@ the whole scrollback. To stretch your usage:
 - **Be specific in requests.** "Add X to the engine" is cheaper than
   "what should we do next?" which makes me write long options menus.
 
-## What's the plan now that v0.6 is in
+## What's the plan now that v0.7 is in
 
-**Next feature: v0.7 — engine consumes a `Patch` from the show store.**
-Today `engine_start` takes a flat `StartConfig`. Next step: pass the
-currently-selected `Patch` (graph + meta) from `useShowStore` to the
-engine, walk it server-side, locate the first `instrument.plugin`
-node, and hand it to the existing host. Single-plugin still in v1;
-multi-plugin / chain hosting later.
+No single mandatory next feature. Some natural candidates in rough
+order of payoff vs. cost:
 
-Starting points for the next chat:
-
-- `stardust-pit/src-tauri/src/engine.rs` + `commands.rs` — current
-  `StartConfig` takes raw bundle/plugin IDs. Replace (or
-  supplement) with a `PatchGraph`-consuming variant that walks the
-  graph to find the plugin.
-- `stardust-pit/src/src/state/show-store.ts` — `getDocument()`
-  already produces the full `ShowDocument` shape; the engine only
-  needs the active `Patch` (graph + name) so add a small selector
-  / pass `currentPatch?.graph` to `engineStart`.
-- `stardust-pit/src/src/components/shell/engine-panel.tsx` — today
-  it picks plugin / MIDI / audio from dropdowns. Once the patch
-  graph supplies the plugin, the plugin dropdown collapses to "use
-  patch's plugin" and only MIDI in / audio out remain manual.
-- `stardust-core/crates/stardust-show/src/types.rs` — `PatchGraph`
-  and `Patch` are already exposed; nothing to add in the data model
-  unless the engine wants per-kind config typing (deferred per
-  ADR-0004).
-
-Other features deferred until after engine-consumes-patches:
-
-- Multi-plugin / chain hosting in the engine.
-- Plugin GUI hosting (window embedding — separate platform work).
-- Sample-rate re-activation when cpal negotiates a different rate.
-- Plugin scan caching (mtime-keyed) — see loose ends.
-- "New show" / "Recent shows" menu — see loose ends.
-- Close-blocker modal on unsaved changes — see loose ends.
+- **v0.8a — active-patch change re-binds the engine.** Today the
+  engine binds a plugin at Start and keeps it until Stop. Wire
+  patch-switch in the show outline (or a stored `activePatchId`
+  separate from `currentPatchId`) to swap the plugin under a running
+  engine. Strictly smaller than multi-plugin chain hosting and
+  unlocks live "next song" workflows.
+- **v0.8b — multi-plugin chain hosting.** Engine walks the patch
+  graph beyond the first instrument and connects audio nodes,
+  effects, splits. Likely needs an ADR (engine graph-walker). Big
+  feature; do active-patch swap first.
+- **Plugin scan caching (mtime-keyed).** Currently `usePluginScan`
+  memoises per session but every cold start dlopens every `.clap`.
+  Small infra fix; gets nicer the more plugins users install.
+- **Close-blocker modal on unsaved changes.** `dirty` flag already
+  exists in the show store; just needs a beforeunload hook + Radix
+  confirm. Small + immediately useful.
+- **"New show" / "Recent shows" menu.** Show store always boots
+  from `_seed-data.ts`; Open Show replaces it. UX gap once anyone
+  has more than one `.stardustshow`.
+- **Plugin GUI hosting.** Per-OS window embedding work. Largest
+  scope; defer until the rest of the audio path matures.
+- **On-screen keyboard polish:** velocity from click-Y, sustain
+  toggle, QWERTY → MIDI mapping. Each is a small additive change to
+  `Keyboard` + a small command-extension on `engine_send_midi`.
 
 ---
 
@@ -299,6 +312,18 @@ Other features deferred until after engine-consumes-patches:
 
 ## Recent commits worth knowing about
 
+- `stardust-pit` `4e42c7d` — v0.7 engine consumes a `Patch` +
+  on-screen MIDI playback. `engine_start_from_patch` walks the
+  active patch's graph for the first `instrument.plugin` and lifts
+  its `{ bundlePath, pluginId, pluginName, pluginVendor }` into the
+  engine. Radix Select picker on the node's Settings pane writes
+  those keys; `usePluginScan()` zustand cache shared with EnginePanel.
+  Engine grew a second SPSC ring + `engine_send_midi` command so the
+  preview keyboard is click/drag-playable (elementFromPoint hit-test,
+  pseudo-3D depressed-key visual). Hardware MIDI optional.
+  `EngineStartError` distinguishes noInstrumentNode /
+  missingPluginConfig / engine. Dropped v0.5's orphaned
+  `load_patch` / `save_patch`.
 - `stardust-pit` `a933d33` — v0.6 Open Show / Save Show end-to-end.
   Rust `load_show` / `save_show` commands + structured `ShowError`;
   UI state lifted into a Zustand show store; `PatchEditor` becomes
