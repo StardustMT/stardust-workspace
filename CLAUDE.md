@@ -91,7 +91,9 @@ These apply across every repo in the workspace.
 
 ## Current priorities
 
-Pit v0.1 (Foundations) is the active focus. Sheets is post-Pit-v1. Everything else (Rehearse, Produce, Stage, Lighting, Galaxy) is speculative — do not scaffold those repos or write code targeting them.
+Pit is the active focus, currently at **v0.5.0** (multi-plugin chain hosting). Sheets is post-Pit-v1. Everything else (Rehearse, Produce, Stage, Lighting, Galaxy) is speculative — do not scaffold those repos or write code targeting them.
+
+Versioning is **semver `major.minor.patch`**. The roadmap to v1.0 lives in `stardustmt.github.io/src/content/docs/docs/pit/roadmap/` — that is the source of truth for shipping scope and exit criteria. `HANDOFF.md` is the short-term in-flight tracker; the docs roadmap is the long-term release plan.
 
 When working on Pit:
 
@@ -117,3 +119,91 @@ When working on stardust-core:
 - Full OMR (optical music recognition) — Sheets uses PDFs + semantic overlays, not parsing
 - AI features without a clear, theatre-specific value proposition
 - Plugin ABI stabilization before there are real plugin authors
+
+---
+
+## Roadmap discipline
+
+`stardustmt.github.io/src/content/docs/docs/pit/roadmap/` is the source of truth for what Pit will ship and in what order. Every code change that affects shipping scope updates the roadmap in the same change:
+
+- **Feature ships**: bump the version entry from 📋 planned to ✅ shipped with the actual git tag. Move loose ends into a tech-debt entry if any remain.
+- **Feature added to scope**: insert it into the appropriate version's section with explicit exit criteria. Don't add anything without exit criteria.
+- **Feature deferred or dropped**: move it to a later version (or v2.0+ backlog) with a one-line reason. Don't silently disappear features.
+
+The GitHub Project board mirrors the roadmap — keep both in sync. Issues represent the operational unit (commits, PRs reference them); the roadmap doc is the human narrative.
+
+This applies in addition to the existing HANDOFF.md ship workflow. HANDOFF tracks short-term in-flight state; the roadmap doc tracks release-shaped scope.
+
+---
+
+## Tech debt tracking
+
+When you introduce tech debt — a known-suboptimal choice, a deferred cleanup, a workaround that should be revisited — add it to the Tech Debt section of the roadmap doc. Include:
+
+- One-line description of the debt
+- Why it's acceptable for now (or why we shipped it)
+- Which future version is expected to clean it up (or "no plan yet")
+
+The pre-v1.0 polish release (v0.15.0) explicitly clears outstanding debt items, so anything not naturally cleaned up by another version must be resolved or explicitly deferred before tagging 1.0.
+
+Don't silently introduce debt. `// TODO:` comments are fine in code, but the debt list is what gets reviewed.
+
+---
+
+## Storybook-first for UI features
+
+Any UI-related feature with no matching Storybook story must have one created first, before functional code is written. Storybook is where the user critiques and locks in UX before wiring happens.
+
+Applies to:
+
+- New screens (Splash, Pit Mixer, Click Track Editor, etc.)
+- New widgets (every Perform widget)
+- New modals (wizards, validation, confirms)
+- New inspector panels
+
+Does NOT apply to:
+
+- Pure engine work with no UI surface
+- Bug fixes to existing UI (the story already exists)
+- Internal refactors with no user-visible change
+
+Workflow: create the Storybook story → demo it to the user → iterate until UX is approved → THEN wire up the functional code.
+
+---
+
+## Feature refinement + review sessions
+
+Each version has two bookend sessions, in addition to the implementation work.
+
+**Pre-feature refinement session** — when starting work on a version, walk through the roadmap entry with the user. Surface every ambiguity, lock in concrete details (UX, data model, exit criteria), update the roadmap entry with the refined spec. Catch hand-wavy items before they become guessed-at code.
+
+**Post-feature review session** — after the version ships, walk through what was actually built vs what was spec'd. Items in scope that didn't land become follow-up tickets in the next version. Items spec'd that proved unnecessary get removed from the roadmap. Bugs found get either fixed immediately (if small) or filed as tickets.
+
+Both sessions update HANDOFF.md + the roadmap doc + the GitHub kanban.
+
+---
+
+## Accessibility is a hard requirement
+
+Every shipping feature must pass an accessibility audit for that feature's surfaces before its version is tagged. No "we'll fix it in v0.15.0" excuses.
+
+Minimum bar:
+
+- WCAG 2.2 AA contrast (AAA where feasible)
+- Full keyboard navigation (no mouse-only interactions)
+- Screen reader compatibility (semantic HTML + ARIA labels)
+- Focus indicators visible on every focusable element
+- Live regions for engine status announcements
+- Reduced-motion preference respected
+
+Theme work must include a contrast checker that fails the theme if it falls below AA. Custom themes that fail are warned but can be saved (user choice).
+
+When the user is part of the audit, frame the ask as: "Try operating this screen with keyboard only" / "Try this screen with VoiceOver." Real testing, not just label compliance.
+
+---
+
+## Audio + ecosystem tech awareness
+
+When you become aware of relevant updates to the audio, sync, plugin, or ecosystem tech landscape — realtime WASM maturing, new platform audio APIs, new sync protocols, latency-relevant hardware shifts, new plugin formats, anything that materially affects what Stardust can build — surface it to the user. Especially if it bears on a currently active feature or a near-term roadmap item.
+
+Be relevant, not exhaustive. The signal is "this changes what we should consider doing," not "here's the news."

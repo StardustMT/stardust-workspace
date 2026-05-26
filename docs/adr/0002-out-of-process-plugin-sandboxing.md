@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-05-18
+- **Implementation:** Planned for v0.7.0 — see [Pit roadmap v0.7.0](../../stardustmt.github.io/src/content/docs/docs/pit/roadmap/index.md). Currently violated (plugins still run in-process); v0.7.0 closes this gap.
 - **Deciders:** @ChaseCondon
 - **Affects:** stardust-pit, stardust-core
 

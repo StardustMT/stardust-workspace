@@ -1,7 +1,8 @@
 # ADR-0006: Engine graph-walker and realtime execution model
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-05-22
+- **Accepted:** 2026-05-26 (shipped in v0.5.0, commit `20bfeaa` / `8eeff2f`)
 - **Deciders:** @ChaseCondon
 - **Affects:** stardust-pit, stardust-core (stardust-dsp)
 
