@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-22 (post v0.8a always-on engine)
+**Last updated:** 2026-05-26 (v0.8b multi-plugin chain hosting shipped; teeing up `engine_rebind_routing`)
 **Purpose:** Read this first in any new chat that's resuming Stardust work,
 especially when switching machines. Bridges what `git log` can't show you
 on its own: where we are in the roadmap, what's in flight, and what
@@ -131,6 +131,45 @@ Phase model from earliest project memory; ticked items have working code on
   up the next. Drive-by fix: `tauri.ts` had `engineStartFromPatch`'s
   `midiInput` typed as `string` but Rust accepts `Option<String>` and
   the existing call already passed `null` — widened to `string | null`.
+- [x] **v0.8b multi-plugin chain hosting.** Engine consumes the whole
+  patch graph, not just the first instrument. Per ADR-0006: a new
+  `engine_graph` module in `stardust-pit/src-tauri/` transforms the
+  graph into an executable `Plan` at start time — composites are
+  pre-flattened, audio DAG is topo-sorted, per-output-port stereo
+  edge buffers are pre-allocated, MIDI routing tables (with zone
+  filters for split-keyboard outs) are built per producing node, and
+  every `instrument.plugin` loads + activates in one shot. The cpal
+  audio callback now drives the Plan: drains hw + UI MIDI rings,
+  iterates nodes in topo order, processes each (CLAP plugin / sine /
+  EQ / mix / sink), distributes outbox events to consumers via the
+  routing table. Allocation-free per block. Native DSP gained a real
+  3-band stereo EQ in `stardust-dsp` (cookbook biquads — low shelf
+  250 Hz, peaking mid 1 kHz Q 0.71, high shelf 4 kHz, slope 1.0);
+  `instrument.sine` is wired as a native node reusing the existing
+  POC synth + ADSR. `midi.transpose` shifts note numbers; `midi.mix`
+  merges streams; `audio.mix` sums N stereo input pairs. Composites
+  are inlined at plan-build (wires targeting `CompositeBlock` ids
+  are rewritten to their promoted-port internal endpoints) and don't
+  exist in the runtime repr. Hardware MIDI fans to the first
+  `source.keyboard` node in the graph (other source kinds — pedals,
+  wheels — are silent in v0.8b; per-source-node controller binding
+  is a v0.9 concern). `EngineStatus::Running` reshaped: `plugins:
+  Vec<HostedPluginStatus>` + `native_nodes: NativeNodeCounts`
+  instead of singular `plugin_name`/`plugin_id`. `EngineStatus::Error`
+  now carries `messages: Vec<String>` so plan-build failures (cycle
+  detection, dangling composite ports, plugin load / activation
+  failures, malformed EQ / transpose config) render as a list. Per-
+  node soft failures (unconfigured `instrument.plugin`, plugin that
+  failed to load) become `PlannedNode::Silent` and the rest of the
+  plan still loads. Plan builder has 7 unit tests covering topo
+  sort, cycle detection, composite flattening, zone filtering, hw-
+  MIDI keyboard targeting, transpose shifts, and a realistic seed-
+  shape build (keyboard zones → transpose → 2 plugins → audio.mix
+  → sink). Stardust commit set: `stardust-core` gains the EQ +
+  `StereoChannel` re-export; `stardust-pit` rewrites
+  `engine_start_from_patch` to ship the whole graph, replaces the
+  audio closure with `Plan::process`, and updates `EnginePanel` to
+  render `N plugins (a, b, c) · 2 EQ, 1 mix` status summaries.
 
 ### Whole-ecosystem
 
@@ -143,59 +182,90 @@ Phase model from earliest project memory; ticked items have working code on
 
 ## Currently in flight
 
-Nothing mid-extraction. v0.8a just shipped — engine is always-on and
-follows the selected patch automatically.
+**Next up: `engine_rebind_routing`.** v0.8b just shipped — engine
+consumes the whole patch graph, hosts multiple plugins concurrently,
+and runs native EQ / mix / transpose nodes. The natural follow-on is a
+targeted command that swaps the cpal stream / midir input *in place*
+without tearing down the plan. With multi-plugin chains the rebuild
+cost on every device change is higher than v0.8a (every plugin reloads
+and re-activates), so the payoff is bigger now. Scope sketch:
 
-Loose ends worth picking up next session:
+- New Rust command `engine_rebind_routing(midiInput?, audioOutput?)`
+  in `stardust-pit/src-tauri/src/commands.rs`. Forwards to the engine
+  thread.
+- Engine thread handler: if the running engine has a Plan, swap only
+  the cpal output stream (or rebuild it on a new device) and only the
+  midir input handle — leave the Plan, plugin instances, edge
+  buffers, and MIDI routing tables untouched.
+- `EnginePanel`'s sync effect should call `engine_rebind_routing`
+  when only `(midiInput, audioOutput)` changed and the plan signature
+  is stable; full `engine_start_from_patch` still fires when patch or
+  plugin choice changes.
+- Acceptance: switching headphones → speakers (or USB MIDI keyboard
+  in / out) mid-session no longer produces the audible glitch caused
+  by plan teardown.
 
-- **Single-plugin still.** The engine walks the patch graph for the
-  first `instrument.plugin` node and ignores the rest. Multi-plugin
-  chain hosting (v0.8b) is the obvious next: engine takes the whole
-  graph and wires audio nodes / effects / splits. Likely needs an
-  ADR for the engine graph-walker abstraction.
-- **Rebind glitches audio briefly.** Each patch switch fully drops the
-  prior plugin then loads + activates the next. The audio thread
-  pauses while CLAP init runs (varies by plugin — Surge XT is fast,
-  others can take 100s of ms). Acceptable for a dev tool; needs a
-  smarter strategy (preload, crossfade, or warm-pool) before live use.
-  Fast click-through of multiple patches also queues serial rebinds.
-- **Live device change tears down the plugin.** Changing the MIDI
-  input or audio output dropdown while a plugin is running goes
-  through the same `Start`-tear-down path. A dedicated
-  `engine_rebind_routing` command that only swaps the cpal stream /
-  midir input without reloading the plugin would be nicer.
+Loose ends worth picking up after that (or before, if smaller fits):
+
+- **Patch-switch latency scales with plugin count.** Each patch switch
+  fully tears down the prior plan then loads + activates every plugin
+  in the next. With 3+ plugins the gap is noticeable. Warm-pool /
+  preload-from-next-patch is the obvious mitigation (likely its own
+  ADR). v0.8a's same loose end, worse with multi-plugin.
+- **Plan rebinds only on plugin-choice change.** `EnginePanel`'s sync
+  effect tracks `(patchId, planSignature, midiInput, audioOutput)`
+  where `planSignature` is a hash of every instrument node's plugin
+  choice. Adding / removing / editing audio effects (EQ, mix) doesn't
+  trigger a rebind — user has to switch patches and back. Acceptable
+  for v0.8b; revisit when the editor gains live-update affordances.
+- **PluginEntry leaks intentionally.** `try_instantiate_plugin`
+  `mem::forget`s the `PluginEntry` so it outlives the
+  `StartedPluginAudioProcessor` (clack-host's `PluginInstanceInner`
+  Arc keeps the plugin alive across drops, but the entry holds the
+  `dlopen` handle and must outlive everything that came from it).
+  Bundles never unload across the process lifetime, even on patch
+  switch. Fine for now; clean up alongside warm-pool work.
+- **Live device change tears down the plan.** Same as v0.8a — fixed
+  by the `engine_rebind_routing` work teed up above; moved into the
+  in-flight section.
+- **Hardware MIDI binds to first source.keyboard.** Other source
+  nodes (pedals, mod/pitch wheels, pads, switches) exist in the graph
+  but receive zero events in v0.8b — there's no UI to assign which
+  hardware controller feeds which source. ADR-0006 documents this;
+  per-source-node controller binding is v0.9 scope.
+- **EQ crossover frequencies are constants.** The 3-band EQ uses
+  low=250 Hz / mid=1 kHz Q 0.71 / high=4 kHz / shelf slope 1.0 with
+  no per-band frequency editing. Acceptable — patch editor doesn't
+  expose those controls. Revisit alongside any "audio.eq settings"
+  panel work.
 - **Plugin GUI hosting still missing.** The PluginUIDock has a
-  disabled "Open full plugin UI" button — needs CLAP GUI
-  extension + native window embedding (separate platform work per OS).
+  disabled "Open full plugin UI" button — needs CLAP GUI extension +
+  native window embedding (separate platform work per OS). With
+  multi-plugin, the picker may want to pick *which* plugin to show.
 - **Velocity / sustain / QWERTY on the on-screen keyboard.** Fixed
   velocity 100, channel 0, no sustain pedal source, no
-  computer-keyboard mapping. Easy follow-ups; skipped to keep v0.7
-  focused. Mainstage-style click-position-as-velocity is fancier
-  but trivial once we want it.
+  computer-keyboard mapping. Same as v0.7 / v0.8a.
 - **Dirty-tracking is a dot, not a close-blocker.** Closing the app
   or opening another show without saving silently discards changes.
-  Fine for the POC; add a modal confirm when this surfaces a real
-  loss-of-work moment.
-- **One show seeded; no "new show" or "recent shows" UI.** The store
-  boots from `_seed-data.ts`; Open Show replaces. No menu to start
-  fresh or jump to a recent file. Add when the workflow demands it.
+  Same as v0.6 / v0.7.
+- **One show seeded; no "new show" or "recent shows" UI.** Same as
+  v0.6.
 - **`tsc --noEmit`** in `ui:build` fails on a pre-existing tsconfig
   project-references bug (`tsconfig.node.json` not marked composite).
-  Storybook + cargo + `bun dev` all work; just `bun ui:build`'s
-  type-check step trips. Predates v0.4.
+  Storybook + cargo + `bun dev` all work. Predates v0.4.
 - **Plugin metadata scan is eager + uncached.** Every app launch
-  dlopens every installed `.clap`. `usePluginScan()` now memoises
-  for the session, but a cold start still hits everything. Will
-  need an mtime-keyed cache once users have large libraries.
-- **cpal `DeviceTrait::name` deprecation warnings (3).** cpal 0.17
-  wants `description()` / `id()` instead. Functional, just noisy.
-- **No graceful shutdown** on the engine thread. The thread is
-  reaped when the process exits; `EngineCommand::Shutdown` is
-  defined but unused. Fine for now.
-- **Storybook PluginUIDock has no plugins.** The picker calls
-  `list_clap_plugins` via Tauri — outside Tauri the dropdown is
-  empty. Picker still renders; just nothing to choose. Real flow
-  works in `bun dev`.
+  dlopens every installed `.clap`. v0.8b's plan builder also rescans
+  on every Start to confirm bundle paths — so each patch switch
+  re-walks the disk. Add mtime-keyed caching.
+- **cpal `DeviceTrait::name` deprecation warnings (3).** Same as v0.5.
+- **No graceful shutdown** on the engine thread. Same as v0.4.
+- **Storybook PluginUIDock has no plugins.** Same as v0.7.
+- **`PlanBuildError::UnknownWireEndpoint` and structural errors are
+  fatal.** Today's plan builder rejects any wire pointing at a node
+  id it doesn't know about. The data model's `validate.rs` should
+  catch this before the engine sees it, so this is belt-and-suspenders
+  — but if it ever fires in practice the UI just shows the error
+  message; there's no per-wire highlight in the editor yet.
 
 ---
 
@@ -264,34 +334,35 @@ the whole scrollback. To stretch your usage:
 - **Be specific in requests.** "Add X to the engine" is cheaper than
   "what should we do next?" which makes me write long options menus.
 
-## What's the plan now that v0.8a is in
+## Backlog after `engine_rebind_routing`
 
-No single mandatory next feature. Some natural candidates in rough
-order of payoff vs. cost:
+Rough payoff-vs-cost order; pick whichever fits the next session:
 
-- **v0.8b — multi-plugin chain hosting.** Engine walks the patch
-  graph beyond the first instrument and connects audio nodes,
-  effects, splits. Likely needs an ADR (engine graph-walker).
-  Largest of the remaining audio-path items; unlocks the rest of
-  what the patch editor already lets users draw.
-- **`engine_rebind_routing` command.** Today, changing MIDI input
-  or audio output mid-session tears down the plugin and reloads.
-  A targeted command that only swaps the cpal stream / midir input
-  in place would remove the audio glitch on routing changes.
-- **Plugin scan caching (mtime-keyed).** Currently `usePluginScan`
-  memoises per session but every cold start dlopens every `.clap`.
-  Small infra fix; gets nicer the more plugins users install.
-- **Close-blocker modal on unsaved changes.** `dirty` flag already
-  exists in the show store; just needs a beforeunload hook + Radix
-  confirm. Small + immediately useful.
-- **"New show" / "Recent shows" menu.** Show store always boots
-  from `_seed-data.ts`; Open Show replaces it. UX gap once anyone
-  has more than one `.stardustshow`.
-- **Plugin GUI hosting.** Per-OS window embedding work. Largest
-  scope; defer until the rest of the audio path matures.
+- **Warm-pool / preload for patch switching.** Patch-switch latency
+  scales linearly with plugin count in v0.8b. Pre-loading the next
+  song's patches in the background (or keeping recently-used plugin
+  instances in an LRU pool) closes the gap. Likely its own ADR.
+- **Per-source-node controller assignment.** Today hardware MIDI is
+  hardcoded to the first `source.keyboard` node. To make pedals,
+  wheels, pads, and switches actually do something, each source node
+  needs to know which physical controller feeds it. UI work in the
+  rig + node settings; Rust validation; ADR likely.
+- **Plugin scan caching (mtime-keyed).** v0.8b made this worse —
+  every plan build re-scans the disk to confirm bundle paths still
+  exist. Small infra fix; matters once libraries are large.
+- **Close-blocker modal on unsaved changes.** `dirty` flag exists;
+  needs beforeunload + Radix confirm.
+- **"New show" / "Recent shows" menu.**
+- **Plugin GUI hosting.** With multi-plugin, the picker may want a
+  "which plugin's GUI?" dropdown. Largest scope of the remaining
+  items; per-OS window embedding work.
 - **On-screen keyboard polish:** velocity from click-Y, sustain
-  toggle, QWERTY → MIDI mapping. Each is a small additive change to
-  `Keyboard` + a small command-extension on `engine_send_midi`.
+  toggle, QWERTY → MIDI mapping. Same easy follow-ups as v0.7.
+- **Live audio-fx parameter editing.** The patch editor lets users
+  set EQ band gains, transpose semitones, etc., but the engine reads
+  config once at plan-build time. To make these knobs feel live, the
+  engine needs a `parameter_changed` command path that mutates the
+  running plan without reload.
 
 ---
 
@@ -334,6 +405,28 @@ order of payoff vs. cost:
 
 ## Recent commits worth knowing about
 
+- `stardust-pit` `20bfeaa` — v0.8b multi-plugin chain
+  hosting. New `engine_graph` module: `Plan::build(&PatchGraph)`
+  produces an executable plan (flatten composites → resolve nodes →
+  topo-sort audio DAG → pre-allocate edge buffers → build MIDI
+  routes → load + activate every plugin → instantiate native DSP).
+  `Plan::process(cpal_buf, spec)` runs the plan per audio block —
+  allocation-free, drains hw + UI MIDI rings, iterates nodes in
+  topo order, distributes outbox events via the routing table,
+  sums sink edges into cpal output. `engine.rs` rewritten around
+  the Plan; `EngineStatus::Running` gains `plugins: Vec<_>` +
+  `native_nodes: NativeNodeCounts`; `EngineStatus::Error` gains
+  `messages: Vec<String>`. `commands.rs::engine_start_from_patch`
+  ships the whole graph; `EngineStartError` trimmed to the
+  channel-closed case (plan errors come back async via status).
+  `EnginePanel` renders multi-plugin status as
+  `2 plugins (Surge XT, Piano) · 1 EQ, 1 mix`. 7 plan-builder
+  tests including a realistic seed-shape integration test.
+- `stardust-core` `8eeff2f` — 3-band stereo EQ in
+  `stardust-dsp` (cookbook biquads: low shelf 250 Hz, peaking mid
+  1 kHz Q 0.71, high shelf 4 kHz, slope 1.0). `StereoChannel`
+  re-exported from `stardust-patch`'s top-level so consumers don't
+  reach through `types::`.
 - `stardust-pit` `d88b8d9` — v0.8a always-on engine. Start/Stop
   buttons removed; EnginePanel's sync effect fires
   `engine_start_from_patch` or `engine_stop` based on (current patch,
