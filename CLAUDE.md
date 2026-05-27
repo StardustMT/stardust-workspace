@@ -122,6 +122,27 @@ When working on stardust-core:
 
 ---
 
+## The three living documents (roadmap · issues · docs)
+
+There is no separate planning doc. The roadmap, the GitHub issues, and the docs site **are** the source of truth — collectively and permanently. Each has a distinct job, and each is a *living* document that must be checked at the start of work and updated as work proceeds. Never let them drift from reality.
+
+**Division of responsibility:**
+
+- **Roadmap** (`stardustmt.github.io/.../pit/roadmap/`) — high-level *what ships and in what order*. Per-version scope, exit criteria, tech-debt log, v1.x / v2.0+ backlogs. The human narrative.
+- **Issues** (GitHub Project board at the StardustMT org) — the *individually-implementable specifics*. One issue = one pickup-able piece of work. Each issue carries: context, detailed acceptance criteria, refinement notes, work-log notes, links to any issues it spawned, and a closure summary. Commits and PRs reference issues.
+- **Docs** (`stardustmt.github.io/.../pit/` feature/concept/architecture pages) — the in-depth *textbook*. At v1.0 a user should be able to learn Pit entirely from the docs. Every shipping feature has an accurate, current page.
+
+**Obligations — these are not optional:**
+
+1. **Check before you work.** Before starting any feature or issue, read its roadmap entry, its issue(s), and the existing docs page. Don't re-derive what's already written down.
+2. **Issues are the work log.** During refinement, append the locked-in decisions to the issue (tighten the acceptance criteria, add a "Refinement notes" section). During implementation, log meaningful progress + decisions as issue comments. If work reveals a new piece of work, **file a new issue, cross-link it** (both directions), and tag it to a milestone. On completion, close the issue with a summary of what shipped + the commit/PR reference.
+3. **Docs ship with the feature.** When a feature ships or materially changes, update its docs page in the *same* change — status badge, behavior, screenshots/GIFs where relevant. A shipped feature with stale docs is an incomplete feature. Docs are the user's textbook, not a marketing artifact: write them so a musician can get their bearings and learn to use Pit.
+4. **Keep the three in sync.** Roadmap scope change → reflect on the board. Issue spawns scope → reflect on the roadmap. Feature ships → roadmap badge + docs page + issue closure, together.
+
+The refinement and review sessions (below) are the formal checkpoints for this; but the obligations apply continuously, not just at session boundaries.
+
+---
+
 ## Roadmap discipline
 
 `stardustmt.github.io/src/content/docs/docs/pit/roadmap/` is the source of truth for what Pit will ship and in what order. Every code change that affects shipping scope updates the roadmap in the same change:
@@ -175,11 +196,11 @@ Workflow: create the Storybook story → demo it to the user → iterate until U
 
 Each version has two bookend sessions, in addition to the implementation work.
 
-**Pre-feature refinement session** — when starting work on a version, walk through the roadmap entry with the user. Surface every ambiguity, lock in concrete details (UX, data model, exit criteria), update the roadmap entry with the refined spec. Catch hand-wavy items before they become guessed-at code.
+**Pre-feature refinement session** — when starting work on a version, walk through the roadmap entry *and the version's issues* with the user, issue by issue. Surface every ambiguity, lock in concrete details (UX, data model, exit criteria). Write the outcome where it belongs: refined acceptance criteria + a "Refinement notes" section **on each issue**; the refined spec on the **roadmap** entry; any newly-discovered work as **new cross-linked issues** on the board. Catch hand-wavy items before they become guessed-at code. Flip refined issues from 📋 Planned → 🔍 Under refinement → 📋 Planned (criteria locked) so the board shows refinement state.
 
-**Post-feature review session** — after the version ships, walk through what was actually built vs what was spec'd. Items in scope that didn't land become follow-up tickets in the next version. Items spec'd that proved unnecessary get removed from the roadmap. Bugs found get either fixed immediately (if small) or filed as tickets.
+**Post-feature review session** — after the version ships, walk through what was actually built vs what was spec'd. Items in scope that didn't land become follow-up tickets in the next version (filed + cross-linked). Items spec'd that proved unnecessary get removed from the roadmap with a one-line reason. Bugs found get fixed immediately (if small) or filed as tickets. Every shipped item's **docs page is brought current** as part of this review.
 
-Both sessions update HANDOFF.md + the roadmap doc + the GitHub kanban.
+Both sessions update HANDOFF.md + the roadmap doc + the GitHub issues + the affected docs pages — together, in the same pass.
 
 ---
 
