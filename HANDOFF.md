@@ -1,15 +1,21 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-26 (post doc-rewrite + kanban setup; v0.6.0 engine completeness is the next chunk)
+**Last updated:** 2026-05-27 (post doc-rewrite v2 + kanban deepening; v0.6.0 engine completeness is the next chunk)
 **Purpose:** Read this first in any new chat that's resuming Stardust work, especially when switching machines. Bridges what `git log` can't show: where we are in the roadmap, what's in flight, what decisions are baked in.
+
+> ## ⚠️ REQUIRED READING for any future chat resuming Stardust work
+>
+> **Read `PLANNING.md` (workspace root) end-to-end before doing any docs / kanban / spec work.**
+>
+> HANDOFF.md (this file) carries the decisions; PLANNING.md carries the reasoning, depth, and alternatives considered. Feature pages, ADRs, and per-version refinement sessions write *from* PLANNING.md. If a planning decision feels under-specified in HANDOFF, the answer is in PLANNING.
 
 ---
 
 ## TL;DR for a new chat
 
 - Current shipping state: **v0.5.0** (multi-plugin chain hosting via engine_graph Plan)
-- **Just shipped (this chat):** retro git tags v0.1.0–v0.5.0 in stardust-pit + v0.2.0/v0.2.1/v0.3.0/v0.5.0 in stardust-core; ADR-0006 → Accepted; ADR-0002 status note pointing at v0.7.0; full doc-site rewrite — new MDX roadmap, three-mode concept doc replacing edit-vs-live, 11 new feature pages, 3 new ecosystem docs, screen inventory, status sweep across 19 existing feature pages, custom Header.astro with hover dropdowns; GitHub Project kanban at org level with columns / milestones v0.6.0–v1.0.0 / labels / 17 seeded issues (v0.6.0 scope + tech-debt)
-- **Next chunk of work:** v0.6.0 refinement session, then implementation. See the [Pit roadmap v0.6.0 entry](https://stardustmt.github.io/docs/pit/roadmap/#v060--engine-completeness) — exit criteria are explicit.
+- **Just shipped (this chat):** Deep rewrite of all feature pages with full PLANNING.md depth (patch-library data model, balance tool LUFS/velocity/attack engineering, click track data model + SMF roundtrip, backing tracks workflow, engine monitor field table, conductor cam analog-vs-software analysis, Pit Mixer hardware compat, extension API WASM rationale, new show wizard 6-step spec, button/switch spec, show control vision, latency budget Part 14 landscape, marketplace tiers + cost, infrastructure choices); converted 19 existing feature pages from .md → .mdx with proper `<Badge>` status components; renamed project board from "Stardust roadmap" → "Stardust Pit"; updated all 11 v0.6.0 kanban issues with detailed acceptance criteria; filed 9 additional tech-debt issues from PLANNING Part 15 (close-blocker, on-screen keyboard, autosave, backup, telemetry, release pipeline, bundle format, native menu, QWERTY). 26 total issues on the board.
+- **Next chunk of work:** v0.6.0 refinement session, then implementation. See the [Pit roadmap v0.6.0 entry](https://stardustmt.github.io/docs/pit/roadmap/#v060--engine-completeness) — exit criteria are explicit. Issues #1–#11 + #18 have detailed acceptance criteria; pick any.
 - All decisions from the prior planning consolidation are captured below — do not re-litigate
 
 ---
@@ -159,7 +165,7 @@ For loose ends carried from v0.5.0, see [the roadmap's Tech Debt table](https://
 
 Paste this into a fresh `/clear`-ed session:
 
-> Resuming Stardust work — v0.6.0 engine completeness. Read `HANDOFF.md` first, then walk through the v0.6.0 refinement session per CLAUDE.md (pre-feature refinement). v0.6.0 scope is on the [Pit roadmap](https://stardustmt.github.io/docs/pit/roadmap/#v060--engine-completeness) and as seeded issues on https://github.com/orgs/StardustMT/projects/1. Surface ambiguities before writing code.
+> Resuming Stardust work — v0.6.0 engine completeness. **Read `HANDOFF.md` and `PLANNING.md` (workspace root) first** — PLANNING.md is required reading for any docs / kanban / spec work; it carries the reasoning behind every locked-in decision. Then walk through the v0.6.0 refinement session per CLAUDE.md (pre-feature refinement). v0.6.0 scope is on the [Pit roadmap](https://stardustmt.github.io/docs/pit/roadmap/#v060--engine-completeness) and as seeded issues on https://github.com/orgs/StardustMT/projects/1. Surface ambiguities before writing code.
 
 ---
 
