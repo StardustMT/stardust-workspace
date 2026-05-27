@@ -1,20 +1,24 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-05-27 (post doc-rewrite v2 + kanban deepening; v0.6.0 engine completeness is the next chunk)
+**Last updated:** 2026-05-27 (doc-rewrite v2 + full kanban backlog + PLANNING.md consolidated into docs/issues and deleted; v0.6.0 engine completeness is the next chunk)
 **Purpose:** Read this first in any new chat that's resuming Stardust work, especially when switching machines. Bridges what `git log` can't show: where we are in the roadmap, what's in flight, what decisions are baked in.
 
-> ## ⚠️ REQUIRED READING for any future chat resuming Stardust work
+> ## Source of truth (read in this order)
 >
-> **Read `PLANNING.md` (workspace root) end-to-end before doing any docs / kanban / spec work.**
+> The full planning context has been consolidated into permanent homes — **`PLANNING.md` has been deleted; do not look for it.** The canonical sources, in priority order:
 >
-> HANDOFF.md (this file) carries the decisions; PLANNING.md carries the reasoning, depth, and alternatives considered. Feature pages, ADRs, and per-version refinement sessions write *from* PLANNING.md. If a planning decision feels under-specified in HANDOFF, the answer is in PLANNING.
+> 1. **GitHub Project board** — https://github.com/orgs/StardustMT/projects/1 — every feature + tech-debt item across v0.6.0–v1.0.0 as milestone-tagged issues with acceptance criteria. This is the source of truth for *progress + scope*.
+> 2. **Docs site** — https://stardustmt.github.io/docs/pit/ — the source of truth for *what each feature is + why*. Roadmap, per-feature pages, concept docs (user journey, rig components, show metadata, setup/program/perform), widget catalog, screen inventory, architecture (incl. engine), reliability, ecosystem.
+> 3. **ADRs** — `docs/adr/` — locked architectural decisions with reasoning + revisit triggers.
+> 4. **This file (HANDOFF.md)** — in-flight state + the "Architectural decisions baked in" ledger below (don't re-litigate).
+> 5. **CLAUDE.md** — durable conventions + SDLC rules.
 
 ---
 
 ## TL;DR for a new chat
 
 - Current shipping state: **v0.5.0** (multi-plugin chain hosting via engine_graph Plan)
-- **Just shipped (this chat):** Deep rewrite of all feature pages with full PLANNING.md depth (patch-library data model, balance tool LUFS/velocity/attack engineering, click track data model + SMF roundtrip, backing tracks workflow, engine monitor field table, conductor cam analog-vs-software analysis, Pit Mixer hardware compat, extension API WASM rationale, new show wizard 6-step spec, button/switch spec, show control vision, latency budget Part 14 landscape, marketplace tiers + cost, infrastructure choices); converted 19 existing feature pages from .md → .mdx with proper `<Badge>` status components; renamed project board "Stardust roadmap" → "Stardust Pit"; **filed the full per-version backlog as kanban issues — 97 issues in stardust-pit + 1 in stardust-core, 98 total on the board**, each milestone-tagged with detailed acceptance criteria. Added "🔍 Under refinement" status column + `needs-refinement` label for features explicitly requiring a per-version spec session before dev pickup (widget catalog, click editor, balance tool, song transport state machine, vamp interplay, MIDI recording, extension API).
+- **Just shipped (this chat):** Deep-rewrote every feature page with full spec depth (patch-library data model, balance tool LUFS/velocity/attack engineering, click track data model + SMF roundtrip, backing tracks workflow, engine monitor field table, conductor cam analog-vs-software analysis, Pit Mixer hardware compat, extension API WASM rationale, new show wizard 6-step spec, button/switch spec, show control vision, latency budget landscape, marketplace tiers + cost, infrastructure choices); converted 19 feature pages .md → .mdx with `<Badge>` status; added concept docs (user journey, rig components, show metadata), the widget catalog, the engine architecture doc, ADR-0008 (crate org); renamed project board → "Stardust Pit"; **filed the full per-version backlog — 98 issues on the board**, milestone-tagged with acceptance criteria; added "🔍 Under refinement" column + `needs-refinement` label; **consolidated PLANNING.md fully into the docs site + ADRs + this file's decisions ledger, then deleted PLANNING.md** so docs + issues are the single source of truth.
 - **Next chunk of work:** v0.6.0 refinement session, then implementation. See the [Pit roadmap v0.6.0 entry](https://stardustmt.github.io/docs/pit/roadmap/#v060--engine-completeness) — exit criteria are explicit. Issues #1–#11 + #18 have detailed acceptance criteria; pick any.
 - All decisions from the prior planning consolidation are captured below — do not re-litigate
 
@@ -165,7 +169,7 @@ For loose ends carried from v0.5.0, see [the roadmap's Tech Debt table](https://
 
 Paste this into a fresh `/clear`-ed session:
 
-> Resuming Stardust work — v0.6.0 engine completeness. **Read `HANDOFF.md` and `PLANNING.md` (workspace root) first** — PLANNING.md is required reading for any docs / kanban / spec work; it carries the reasoning behind every locked-in decision. Then walk through the v0.6.0 refinement session per CLAUDE.md (pre-feature refinement). v0.6.0 scope is on the [Pit roadmap](https://stardustmt.github.io/docs/pit/roadmap/#v060--engine-completeness) and as seeded issues on https://github.com/orgs/StardustMT/projects/1. Surface ambiguities before writing code.
+> Resuming Stardust work — v0.6.0 engine completeness. **Read `HANDOFF.md` + `CLAUDE.md` first**, then the [Pit roadmap v0.6.0 entry](https://stardustmt.github.io/docs/pit/roadmap/#v060--engine-completeness) and the v0.6.0 issues on the [project board](https://github.com/orgs/StardustMT/projects/1) (filter milestone v0.6.0). The docs site + project board are the source of truth — `PLANNING.md` was consolidated into them and deleted. Then walk through the v0.6.0 refinement session per CLAUDE.md (pre-feature refinement): go issue-by-issue (#1–#11 + #18), surface ambiguities, tighten acceptance criteria, update issues + roadmap doc. Don't write code until the refinement pass is done.
 
 ---
 
