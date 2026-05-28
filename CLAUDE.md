@@ -143,6 +143,45 @@ The refinement and review sessions (below) are the formal checkpoints for this; 
 
 ---
 
+## Issue hygiene (the fields every issue carries)
+
+Every issue is created and maintained with a consistent set of fields. This is what makes the board searchable and the work durable.
+
+**At creation:**
+
+- **Title** — short imperative; one implementable thing
+- **Body** — context, acceptance criteria checkboxes, references (PLANNING moved into docs/ADRs; cite roadmap entries + related issues + relevant docs)
+- **Milestone** — the target version (every issue has one)
+- **Labels** — area labels (`screen:*`, `engine:*`) + cross-cutting labels (`tech-debt`, `infrastructure`, `documentation`, `extension`, `needs-refinement`)
+- **Type** — GitHub native Issue Type. Use **Feature** for new user-visible functionality, **Task** for infrastructure / docs / tech-debt / chore, **Bug** for unexpected behavior. Set at creation.
+- **Project** — added to the StardustMT Pit board immediately; **Status** = 📋 Planned
+
+**Set during the version's pre-feature refinement session:**
+
+- **Estimate** — XS (`<0.5d`) / S (`~1d`) / M (`2–3d`) / L (`~1wk`) / XL (`2wk+`). Don't estimate at creation — wait for refinement so the number means something. Mark `🔍 Under refinement` while in the session; back to `📋 Planned` once criteria are locked.
+- **Priority** — P0 (show-blocker) / P1 (important) / P2 (normal) / P3 (someday). Most pre-1.0 work is P2 with reliability + critical-path bumped to P1. P0 reserved for actual show-blocking bugs once shipping.
+- **Refinement notes** — append the locked-in decisions to the issue body (or a dedicated "Refinement notes" section). Tighten acceptance criteria from rough to concrete.
+
+**At pickup (start of work):**
+
+- **Assignee** — self-assign
+- **Status** — flip to 🔨 In Progress
+
+**During work:**
+
+- Log meaningful progress + decisions as **issue comments** (the work log)
+- If new work surfaces, **file a new issue** + cross-link it both directions. Use **native GitHub sub-issues** when the new work is a child of an umbrella (don't use text-only `#42` cross-links for parent/child — text links are fine for siblings or peer references). The `needs-refinement` umbrellas (widget catalog, click editor, balance tool, etc.) spawn sub-issues this way.
+
+**At completion:**
+
+- Close the issue with a comment summarising **what shipped + commit/PR ref**
+- Status → ✅ Done (or 🧊 Deferred with a one-line reason)
+- If it was a UI feature, the **Storybook screenshot automation** (issue #113, once shipped) posts a screenshot to the issue automatically; until then, attach a screenshot manually
+
+**Commits reference issues.** Every commit message that lands work for an issue includes `#N` so cross-references resolve. This is what feeds the screenshot automation pipeline.
+
+---
+
 ## Roadmap discipline
 
 `stardustmt.github.io/src/content/docs/docs/pit/roadmap/` is the source of truth for what Pit will ship and in what order. Every code change that affects shipping scope updates the roadmap in the same change:
