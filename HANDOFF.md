@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-06-01 (post #10 PR CI ship)
+**Last updated:** 2026-06-01 (post #11 orphan-cleanup ship)
 **Purpose:** Lightweight pointer for whoever (or whichever chat) picks up Stardust work next. Current state + next task + how to bootstrap. Everything else lives in the canonical sources below.
 
 > ## Source of truth (read in this order)
@@ -16,9 +16,11 @@
 ## Current state
 
 - **Shipping**: v0.5.0 (multi-plugin chain hosting via `engine_graph` Plan)
-- **Board**: 122 issues. v0.1.0–v0.5.0 back-filled and ✅ Done; v0.6.0 in progress (#10 ✅); v0.7.0–v1.0.0 milestoned with acceptance criteria.
-- **v0.6.0 progress**: 1/11 shipped. **#10 ✅ shipped 2026-06-01** — GitHub Actions PR CI live on both repos (stardust-pit#114, stardust-core#11). All 5 status checks green on first push to main. Spawned StardustMT/stardust-core#12 (cpal `DeviceTrait::name` migration) — `#[allow(deprecated)]` suppressions in stardust-audio need to come out when the device picker UI work picks them up.
-- **Next chunk**: #11 (delete orphaned `sound/`) per dependency order. Trivial XS housekeeping; verified green by the CI we just landed.
+- **Board**: 122 issues. v0.1.0–v0.5.0 back-filled and ✅ Done; v0.6.0 in progress (#10 ✅, #11 ✅); v0.7.0–v1.0.0 milestoned with acceptance criteria.
+- **v0.6.0 progress**: 2/11 shipped.
+  - **#10 ✅ shipped 2026-06-01** — GitHub Actions PR CI live on both repos (stardust-pit#114, stardust-core#11). All 5 status checks green. Spawned StardustMT/stardust-core#12 (cpal `DeviceTrait::name` migration) — `#[allow(deprecated)]` suppressions in stardust-audio need to come out when the device picker UI work picks them up.
+  - **#11 ✅ shipped 2026-06-01** — Deleted `src/src/components/sound/` (8 files, 815 lines) + trimmed dead `SoundBlock`-typed orphans from `_demo-data.ts` (388 lines). Squash-merged as `5821a6d` (PR stardust-pit#115). Also closes the v0.5.0 tech-debt "sound/ orphaned" entry.
+- **Next chunk**: #9 (sine → `instrument.testtone`) per dependency order. S / P2 — small schema migration; hide sine from the catalog, expose as diagnostic-only.
 
 ## Outstanding manual step
 
@@ -39,8 +41,8 @@ Both updated in `stardustmt.github.io/src/content/docs/docs/pit/decisions.md` an
 ## v0.6.0 implementation order (dependency-driven)
 
 1. ~~**#10** — GitHub Actions PR CI~~ · L · P1 · **✅ 2026-06-01**
-2. **#11** — Delete orphaned `sound/` (housekeeping; verified green by #10) · XS · P2 ← *next*
-3. **#9** — Sine → `instrument.testtone` (small schema migration) · S · P2
+2. ~~**#11** — Delete orphaned `sound/`~~ · XS · P2 · **✅ 2026-06-01**
+3. **#9** — Sine → `instrument.testtone` (small schema migration) · S · P2 ← *next*
 4. **#1** — `engine_rebind_routing` (audio plumbing core) · M · P1
 5. **#3** — Engine Panic command (needed by #5's Panic action) · S · P1
 6. **#2** — Per-source-node hardware MIDI binding (foundational engine routing) · M · P1
@@ -52,14 +54,13 @@ Both updated in `stardustmt.github.io/src/content/docs/docs/pit/decisions.md` an
 
 ## What's in flight right now
 
-**Nothing.** #10 shipped 2026-06-01. Same-session bookkeeping closed:
+**Nothing.** #11 shipped 2026-06-01. Same-session bookkeeping closed:
 
-- **Issue #10** — auto-closed by "Closes #10" in the workflow commit. Closure comment posted with commit refs (pit + core), follow-up issue link, and the outstanding branch-protection step.
-- **Roadmap** — v0.6.0 scope entry flipped to ✅ shipped with date + PR refs; tech-debt log updated (CI no-pipeline + `tsc --noEmit` items now ✅; cpal-deprecation item re-pointed at core#12).
-- **No docs page** — #10 is infra (no user-facing surface to document). The build/test conventions are evident from the workflow file and CONTRIBUTING.md.
-- **Follow-up filed** — StardustMT/stardust-core#12, cross-linked from PR #11.
+- **Issue #11** — auto-closed by "Closes #11" in PR #115. Closure comment posted with merge ref, file list, and reaffirmation that v0.10.0 will rebuild from scratch.
+- **Roadmap** — v0.6.0 scope entry flipped to ✅ shipped with the PR ref; v0.5.0 tech-debt "sound/ orphaned" entry moved to ✅ v0.6.0 with the same ref.
+- **No docs page** — #11 is housekeeping (no user-facing surface). `git log --follow` on any deleted path lands on the squash commit for archaeology.
 
-Next chat picks up #11 (delete orphaned `sound/`).
+Next chat picks up #9 (sine → `instrument.testtone`).
 
 ---
 
@@ -67,7 +68,7 @@ Next chat picks up #11 (delete orphaned `sound/`).
 
 Paste this into a fresh `/clear`-ed session:
 
-> Resuming Stardust work — **v0.6.0 implementation**, next up is **#11 (delete orphaned `sound/` components)** per dependency order. #10 (PR CI) shipped 2026-06-01; CI is now green on `main` in both repos. Read `HANDOFF.md` + `CLAUDE.md` first. Then read [#11 on the board](https://github.com/StardustMT/stardust-pit/issues/11) for its locked acceptance criteria — it's XS / P2 housekeeping, expected to be a single PR. After #11, the next chunk is #9 (sine → `instrument.testtone`), then #1 (`engine_rebind_routing`). Ship in small PRs that each reference the issue; update `docs/pit/` pages in the same PR as the feature ships per the three-living-documents rule. Storybook-first applies for any UI surface.
+> Resuming Stardust work — **v0.6.0 implementation**, next up is **#9 (sine → `instrument.testtone`)** per dependency order. #10 (PR CI) and #11 (orphan deletion) both shipped 2026-06-01; CI is green on `main` in both repos. Read `HANDOFF.md` + `CLAUDE.md` first. Then read [#9 on the board](https://github.com/StardustMT/stardust-pit/issues/9) for its locked acceptance criteria — it's S / P2, a small schema migration that hides the sine synth from the catalog and re-files it as a diagnostic-only `instrument.testtone`. After #9, the next chunk is #1 (`engine_rebind_routing`), then #3 (engine Panic). Ship in small PRs that each reference the issue; update `docs/pit/` pages in the same PR as the feature ships per the three-living-documents rule. Storybook-first applies for any UI surface.
 
 ---
 
