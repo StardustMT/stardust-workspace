@@ -22,3 +22,9 @@
 
 # Org profile is its own git repo (StardustMT/.github)
 /.github-org/
+
+# Scratch HTML / clipboards / dumps that don't belong in the workspace
+/docs/tmp/
+
+# Editor-specific workspace files
+/.windsurf/

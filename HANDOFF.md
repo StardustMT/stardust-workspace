@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-06-01 (post #11 orphan-cleanup ship)
+**Last updated:** 2026-07-03 (post #9 testtone ship + bookkeeping)
 **Purpose:** Lightweight pointer for whoever (or whichever chat) picks up Stardust work next. Current state + next task + how to bootstrap. Everything else lives in the canonical sources below.
 
 > ## Source of truth (read in this order)
@@ -16,20 +16,13 @@
 ## Current state
 
 - **Shipping**: v0.5.0 (multi-plugin chain hosting via `engine_graph` Plan)
-- **Board**: 122 issues. v0.1.0–v0.5.0 back-filled and ✅ Done; v0.6.0 in progress (#10 ✅, #11 ✅); v0.7.0–v1.0.0 milestoned with acceptance criteria.
-- **v0.6.0 progress**: 2/11 shipped.
+- **Board**: 122 issues. v0.1.0–v0.5.0 back-filled and ✅ Done; v0.6.0 in progress (#10 ✅, #11 ✅, #9 ✅); v0.7.0–v1.0.0 milestoned with acceptance criteria.
+- **v0.6.0 progress**: 3/11 shipped.
   - **#10 ✅ shipped 2026-06-01** — GitHub Actions PR CI live on both repos (stardust-pit#114, stardust-core#11). All 5 status checks green. Spawned StardustMT/stardust-core#12 (cpal `DeviceTrait::name` migration) — `#[allow(deprecated)]` suppressions in stardust-audio need to come out when the device picker UI work picks them up.
   - **#11 ✅ shipped 2026-06-01** — Deleted `src/src/components/sound/` (8 files, 815 lines) + trimmed dead `SoundBlock`-typed orphans from `_demo-data.ts` (388 lines). Squash-merged as `5821a6d` (PR stardust-pit#115). Also closes the v0.5.0 tech-debt "sound/ orphaned" entry.
-- **Next chunk**: #9 (sine → `instrument.testtone`) per dependency order. S / P2 — small schema migration; hide sine from the catalog, expose as diagnostic-only.
-
-## Outstanding manual step
-
-Branch protection rules on `main` for both repos. **Not configured yet.** Required status checks to set in the GitHub UI (Settings → Branches):
-
-- **stardust-pit**: `rust (ubuntu-latest)`, `rust (macos-latest)`, `rust (windows-latest)`, `frontend (ubuntu)`, `storybook (ubuntu)`
-- **stardust-core**: `rust (ubuntu-latest)`, `rust (macos-latest)`, `rust (windows-latest)`
-
-The workflow files exist and run; protection is the one-time UI toggle that makes them required-to-merge.
+  - **#9 ✅ shipped 2026-07-03** — `instrument.sine` → `instrument.testtone`, merged via stardust-pit#116 (`36ca235`) + stardust-core#13 (`c2360c3`). `stardust.patch` + `stardust.show` bumped to schema v2 with raw-JSON v1→v2 migration (pre-deserialize). New Tauri command `engine_self_test` renders 2 s offline through a synthetic keyboard→testtone→sink graph and asserts peak 100 ms RMS > −24 dBFS (signal is a C6 note ≈ 1046.5 Hz — spec drift vs the 1 kHz sine, tech-debt logged on the roadmap). Canonical fixture `stardust-pit/src-tauri/tests/fixtures/v0.5.0-sine-show.json` covers the migration+audio end-to-end. New `SettingsScreen` + Storybook story; **live shell wiring spawned as stardust-pit#117 (v0.6.0)**. **Latent engine bug fixed in the process**: `topo_sort` was Kahn-only over audio wires, so `source.keyboard` (no audio I/O) could land *after* the instrument it MIDI-feeds, dropping every event by one block. Topo now stable-partitions sources first. First entry of `docs/schemas/CHANGELOG.md` (ADR-0003 obligation). Story screenshots live on the new `screenshots` orphan branch (`<sha>/<story>.png` — the #113 convention).
+- **Next chunk**: #1 (`engine_rebind_routing`) per dependency order. M / P1 — swap MIDI/audio device without tearing down the Plan.
+- **Branch protection ✅ 2026-07-03** — required status checks now enforced on `main` for both repos (pit: 3× rust + frontend + storybook; core: 3× rust). Set via API; the former "outstanding manual step" is closed, and the v0.6.0 exit criterion "PR CI is required on main" is met.
 
 ## Decisions reversed during v0.6.0 refinement
 
@@ -42,8 +35,8 @@ Both updated in `stardustmt.github.io/src/content/docs/docs/pit/decisions.md` an
 
 1. ~~**#10** — GitHub Actions PR CI~~ · L · P1 · **✅ 2026-06-01**
 2. ~~**#11** — Delete orphaned `sound/`~~ · XS · P2 · **✅ 2026-06-01**
-3. **#9** — Sine → `instrument.testtone` (small schema migration) · S · P2 ← *next*
-4. **#1** — `engine_rebind_routing` (audio plumbing core) · M · P1
+3. ~~**#9** — Sine → `instrument.testtone`~~ · S · P2 · **✅ 2026-07-03**
+4. **#1** — `engine_rebind_routing` (audio plumbing core) · M · P1 ← *next*
 5. **#3** — Engine Panic command (needed by #5's Panic action) · S · P1
 6. **#2** — Per-source-node hardware MIDI binding (foundational engine routing) · M · P1
 7. **#4** — Plugin scan caching · M · P2
@@ -54,13 +47,15 @@ Both updated in `stardustmt.github.io/src/content/docs/docs/pit/decisions.md` an
 
 ## What's in flight right now
 
-**Nothing.** #11 shipped 2026-06-01. Same-session bookkeeping closed:
+**Nothing.** #9 shipped 2026-07-03 (the diff had sat uncommitted locally for a month — re-validated green before shipping). Same-session bookkeeping closed:
 
-- **Issue #11** — auto-closed by "Closes #11" in PR #115. Closure comment posted with merge ref, file list, and reaffirmation that v0.10.0 will rebuild from scratch.
-- **Roadmap** — v0.6.0 scope entry flipped to ✅ shipped with the PR ref; v0.5.0 tech-debt "sound/ orphaned" entry moved to ✅ v0.6.0 with the same ref.
-- **No docs page** — #11 is housekeeping (no user-facing surface). `git log --follow` on any deleted path lands on the squash commit for archaeology.
+- **Issue #9** — auto-closed by "Closes #9" in PR #116; closure comment posted with merge refs, what-shipped summary, and the C6-note spec-drift note. Storybook screenshots (idle / passing / failing) attached via the `screenshots` orphan branch.
+- **#117 filed** — wire `SettingsScreen` into the live app shell (milestoned v0.6.0, `screen:settings` label created, board 📋 Planned, cross-linked to #9). Bump to v0.10.0 during refinement if v0.6.0 is judged wrong.
+- **Roadmap** — #9 entry flipped ✅ with PR ref; v0.6.0 status line updated (3/11); self-test signal drift added to the tech-debt log.
+- **decisions.md + architecture/engine.md** — brought current (`stardustmt.github.io@b384bc3`, `@f6d057c`).
+- **Branch protection** — set on both repos (see Current state).
 
-Next chat picks up #9 (sine → `instrument.testtone`).
+Next chat picks up #1 (`engine_rebind_routing`). Note #117 is also open v0.6.0 work — small, could ride along with any pit UI session.
 
 ---
 
@@ -68,7 +63,7 @@ Next chat picks up #9 (sine → `instrument.testtone`).
 
 Paste this into a fresh `/clear`-ed session:
 
-> Resuming Stardust work — **v0.6.0 implementation**, next up is **#9 (sine → `instrument.testtone`)** per dependency order. #10 (PR CI) and #11 (orphan deletion) both shipped 2026-06-01; CI is green on `main` in both repos. Read `HANDOFF.md` + `CLAUDE.md` first. Then read [#9 on the board](https://github.com/StardustMT/stardust-pit/issues/9) for its locked acceptance criteria — it's S / P2, a small schema migration that hides the sine synth from the catalog and re-files it as a diagnostic-only `instrument.testtone`. After #9, the next chunk is #1 (`engine_rebind_routing`), then #3 (engine Panic). Ship in small PRs that each reference the issue; update `docs/pit/` pages in the same PR as the feature ships per the three-living-documents rule. Storybook-first applies for any UI surface.
+> Resuming Stardust work — **v0.6.0 implementation**, next up is **#1 (`engine_rebind_routing`)** per dependency order. #10 (PR CI), #11 (orphan deletion), and #9 (testtone migration) all shipped; v0.6.0 is 3/11 done, plus small spawned issue #117 (wire SettingsScreen into the shell) open. Read `HANDOFF.md` + `CLAUDE.md` first. Then read [#1 on the board](https://github.com/StardustMT/stardust-pit/issues/1) for its locked acceptance criteria — M / P1, audio plumbing core: swap MIDI/audio device without tearing down the Plan. After #1, #3 (engine Panic) → #2 (per-source hardware MIDI binding). Ship in small PRs that each reference the issue; update `docs/pit/` pages in the same PR as the feature ships per the three-living-documents rule. Storybook-first applies for any UI surface. Note: `main` on both repos now requires green CI checks to merge.
 
 ---
 
