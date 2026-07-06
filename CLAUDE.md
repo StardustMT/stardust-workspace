@@ -20,15 +20,21 @@
 >   tool calls.
 > - **Suggest new chats** when the user starts a meaningfully different
 >   chunk of work; long threads dominate cost.
-> - **When a feature ships, stop and hand off.** As soon as a discrete
->   piece of work is done (committed + pushed + working), do this in
->   order: (1) explicitly tell the user "feature X is complete";
+> - **Batch related work into one shipping unit.** Group as many
+>   tasks as can sensibly be completed together in one go — if
+>   multiple backlog issues logically ship together (shared code
+>   paths, one coherent change), implement them together, commit
+>   them together, and move all their board tickets at once. Each
+>   issue still gets its closure comment + `#N` commit reference.
+> - **When the batch ships, stop and hand off.** As soon as the
+>   grouped chunk of work is done (committed + pushed + working), do
+>   this in order: (1) explicitly tell the user what's complete;
 >   (2) update `HANDOFF.md` with the new state — bump the worklog,
 >   move "in flight" items to "shipped", record new commits worth
 >   knowing, list any loose ends; (3) point the user at the "Bootstrap
 >   prompt for a new chat" section of HANDOFF.md and tell them to
->   `/clear` (or open a new chat) before the next feature. Do NOT
->   automatically start the next feature in the same thread.
+>   `/clear` (or open a new chat) before the next chunk. Do NOT
+>   automatically start the next chunk in the same thread.
 
 This directory is the **Stardust meta-workspace**. It contains:
 

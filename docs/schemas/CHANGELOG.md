@@ -5,7 +5,26 @@ schema bump lands here with: the new version, the migration function
 location, and a one-line rationale. Entries are append-only; never edit
 a shipped migration in place — write a new migration on top.
 
+Additive config keys (ADR-0004 free-form `GraphNode.config`) do not bump
+the schema version but are still recorded here so the config vocabulary
+has an audit trail.
+
 ## stardust.patch
+
+### v2 additive — 2026-07-03 (v0.6.0, stardust-pit#2, no version bump)
+
+- New optional config key on `source.*` nodes:
+  `config.hardwareBinding = { deviceId: string|null, deviceName?: string,
+  channel?: 1..16|null, noteRange?: [lo,hi]|null, ccRange?: [lo,hi]|null }`.
+  `deviceId` is midir's opaque platform port id (NOT a vendor/product
+  tuple — midir exposes none; see the decisions log); `deviceName` is
+  display + replug fallback. Absent binding = match any device
+  (v0.5.0 back-compat), so v2 documents without the key load unchanged —
+  no migration required.
+- Consumed by `stardust-pit/src-tauri/src/engine_graph.rs::source_event_filters`.
+- Tests: `engine_graph.rs::tests::{binding_config_parses_ranges_and_channel,
+  bound_keyboards_receive_only_their_devices_events,
+  unbound_source_matches_any_device}`.
 
 ### v2 — 2026-07-03 (v0.6.0, stardust-pit#9)
 
