@@ -1,6 +1,6 @@
 # Stardust — work in progress handoff
 
-**Last updated:** 2026-07-06 (post #1/#2/#3 engine-routing batch ship)
+**Last updated:** 2026-07-06 (rig-lite re-sequencing after post-#118 review)
 **Purpose:** Lightweight pointer for whoever (or whichever chat) picks up Stardust work next. Current state + next task + how to bootstrap. Everything else lives in the canonical sources below.
 
 > ## Source of truth (read in this order)
@@ -27,7 +27,8 @@
   - **#10 ✅ shipped 2026-06-01** — GitHub Actions PR CI live on both repos (stardust-pit#114, stardust-core#11). All 5 status checks green. Spawned StardustMT/stardust-core#12 (cpal `DeviceTrait::name` migration) — `#[allow(deprecated)]` suppressions in stardust-audio need to come out when the device picker UI work picks them up.
   - **#11 ✅ shipped 2026-06-01** — Deleted `src/src/components/sound/` (8 files, 815 lines) + trimmed dead `SoundBlock`-typed orphans from `_demo-data.ts` (388 lines). Squash-merged as `5821a6d` (PR stardust-pit#115). Also closes the v0.5.0 tech-debt "sound/ orphaned" entry.
   - **#9 ✅ shipped 2026-07-03** — `instrument.sine` → `instrument.testtone`, merged via stardust-pit#116 (`36ca235`) + stardust-core#13 (`c2360c3`). `stardust.patch` + `stardust.show` bumped to schema v2 with raw-JSON v1→v2 migration (pre-deserialize). New Tauri command `engine_self_test` renders 2 s offline through a synthetic keyboard→testtone→sink graph and asserts peak 100 ms RMS > −24 dBFS (signal is a C6 note ≈ 1046.5 Hz — spec drift vs the 1 kHz sine, tech-debt logged on the roadmap). Canonical fixture `stardust-pit/src-tauri/tests/fixtures/v0.5.0-sine-show.json` covers the migration+audio end-to-end. New `SettingsScreen` + Storybook story; **live shell wiring spawned as stardust-pit#117 (v0.6.0)**. **Latent engine bug fixed in the process**: `topo_sort` was Kahn-only over audio wires, so `source.keyboard` (no audio I/O) could land *after* the instrument it MIDI-feeds, dropping every event by one block. Topo now stable-partitions sources first. First entry of `docs/schemas/CHANGELOG.md` (ADR-0003 obligation). Story screenshots live on the new `screenshots` orphan branch (`<sha>/<story>.png` — the #113 convention).
-- **Next chunk**: #4 (plugin scan caching) per dependency order; #6 (plugin GUI hosting) and #8 (Windows audio default) are the other unblocked items. #5 (button/switch) is now unblocked by #3's Panic command.
+- **Re-sequenced 2026-07-06 (user decision)**: **#122 rig-lite** pulled forward from v0.10.0 into v0.6.0 — real Setup → Rig screen, component-level device binding, basic Learn, source nodes reference components (node-level `hardwareBinding` becomes fallback), engine derives MIDI inputs from the rig. Why: #5/#7 already assumed a rig surface; per-patch raw bindings accrue migration debt; real-hardware test loop for the rest of Program. Roadmap v0.6.0 + v0.10.0 entries and decisions.md updated (`stardustmt.github.io@e174d45`). Compounds/widget-editor/velocity-curves stay v0.10.0 — don't let #122 scope-creep.
+- **Next chunk**: **#122 refinement session first** (it's `needs-refinement` — walk the draft AC with the user, lock UX against the approved `setup-rig` Storybook mock, set Estimate/Priority, re-scope #121's leftover), then implement. After #122: #5 → #7; #4/#6/#8 close the version.
 - **Branch protection ✅ 2026-07-03** — required status checks now enforced on `main` for both repos (pit: 3× rust + frontend + storybook; core: 3× rust). Set via API; the former "outstanding manual step" is closed, and the v0.6.0 exit criterion "PR CI is required on main" is met.
 
 ## Decisions reversed during v0.6.0 refinement
@@ -45,11 +46,14 @@ Both updated in `stardustmt.github.io/src/content/docs/docs/pit/decisions.md` an
 4. ~~**#1** — `engine_rebind_routing` (audio plumbing core)~~ · M · P1 · **✅ 2026-07-03 (batch, PR #118)**
 5. ~~**#3** — Engine Panic command (needed by #5's Panic action)~~ · S · P1 · **✅ 2026-07-03 (batch, PR #118)**
 6. ~~**#2** — Per-source-node hardware MIDI binding (foundational engine routing)~~ · M · P1 · **✅ 2026-07-03 (batch, PR #118)**
-7. **#4** — Plugin scan caching · M · P2 ← *next*
-8. **#6** — Plugin GUI hosting (CLAP, dock-by-default UX) · L · P1
-9. **#8** — Windows audio default (ASIO-when-detected) · M · P1
-10. **#5** — Button/switch rig component (depends on #3 Panic) · L · P1
-11. **#7** — Learn Master tool (depends on #5) · M · P2
+7. **#122** — Rig-lite: real Setup → Rig, component-level bindings (pulled from v0.10.0; `needs-refinement`) · est. M–L · P1 ← *next: refine, then build*
+8. **#5** — Button/switch rig component (depends on #3 Panic + #122 rig surface) · L · P1
+9. **#7** — Learn Master tool (depends on #5 + #122) · M · P2
+10. **#4** — Plugin scan caching · M · P2
+11. **#6** — Plugin GUI hosting (CLAP, dock-by-default UX) · L · P1
+12. **#8** — Windows audio default (ASIO-when-detected) · M · P1
+
+Also open, ride-along-sized: **#117** (SettingsScreen into shell), **#121** (retire EnginePanel — re-scope during #122 refinement; its MIDI-derivation half moved into #122), **#119 ✅** (viewport overflow, fixed 2026-07-06 PR #120).
 
 ## What's in flight right now
 
@@ -76,7 +80,7 @@ Both updated in `stardustmt.github.io/src/content/docs/docs/pit/decisions.md` an
 
 Paste this into a fresh `/clear`-ed session:
 
-> Resuming Stardust work — **v0.6.0 implementation**, next up is **#4 (plugin scan caching)** per dependency order. v0.6.0 is 6/11 done: #10 (CI), #11 (orphan deletion), #9 (testtone), and the #1/#2/#3 engine-routing batch (rebind + per-source binding + Panic, PR stardust-pit#118) all shipped. Open v0.6.0 work after #4: #6 (plugin GUI hosting, dock-by-default), #8 (Windows audio default), #5 (button/switch rig component — now unblocked by #3's Panic), #7 (Learn Master), plus small spawned #117 (wire SettingsScreen into the shell). Read `HANDOFF.md` + `CLAUDE.md` first, then the issue(s) on the board for locked acceptance criteria. Batch issues that logically ship together into one PR/commit set (per CLAUDE.md), referencing each issue; update `docs/pit/` pages in the same PR per the three-living-documents rule. Storybook-first applies for any UI surface. `main` on both repos requires green CI to merge. Check HANDOFF's "loose ends" — the #1 ear test and the #2 inspector UX review are waiting on the user.
+> Resuming Stardust work — **v0.6.0, rig-lite refinement + implementation**. Start with a **refinement session for [#122](https://github.com/StardustMT/stardust-pit/issues/122)** (rig-lite: real Setup → Rig screen, component-level device bindings, basic Learn, `rigComponentId` on source nodes with node-level `hardwareBinding` as fallback, engine MIDI inputs derived from the rig). It's `needs-refinement`: walk the draft AC with me issue-by-issue, lock UX against the approved `setup-rig` Storybook mock (extract, don't rebuild), set Estimate/Priority on the board, and re-scope #121's leftover (Settings audio picker, real status footer, EnginePanel deletion) — #117 may batch in. Guardrail: compounds, widget editor, velocity curves, per-pad config stay v0.10.0. Then implement; after #122 the order is #5 → #7, then #4/#6/#8. Context: v0.6.0 re-sequenced 2026-07-06 (roadmap + decisions.md already updated — don't re-litigate); the #1/#2/#3 engine batch shipped as PR stardust-pit#118 and its engine plumbing (device matching, filters, rebind) carries over unchanged. Read `HANDOFF.md` + `CLAUDE.md` first. Batch issues that logically ship together into one PR/commit set, referencing each; docs ship in the same PR per the three-living-documents rule. Storybook-first for any new UI surface. `main` on both repos requires green CI. Loose ends waiting on the user: the #1 ear test verdict and the #2 inspector UX pass.
 
 ---
 
