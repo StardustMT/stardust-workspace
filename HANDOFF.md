@@ -62,6 +62,8 @@ Both updated in `stardustmt.github.io/src/content/docs/docs/pit/decisions.md` an
 - **architecture/engine.md + reliability/voice-tracking.md + concepts/rig-components.md** — brought current.
 - **`docs/schemas/CHANGELOG.md`** — `hardwareBinding` additive-config entry (no version bump).
 
+**Post-ship review (2026-07-06):** user testing surfaced a viewport-overflow bug — `AppShellFrame` forced `h-screen` below the Tauri-only EnginePanel strip, scrolling the status footer off-screen. Fixed + merged same-session (**#119 → PR #120, `e4f773f`**; verified headlessly: 879px→830px scrollHeight). Review feedback also spawned **#121** (derive engine MIDI inputs from patch bindings, retire the EnginePanel strip entirely — depends on #4 + #117, board 📋 Planned, `needs-refinement`). A "Launchkey not found" report turned out to be environment: macOS saw **zero USB devices** on either bus (`system_profiler SPUSBHostDataType`) — cable/port issue, not app code.
+
 **Loose ends for the user (not blocking):**
 
 1. **Manual ear test for #1** — sustained pad, swap audio device, listen for the swap gap. The stream close→open leaves a few-ms silence; if audible/objectionable, file a follow-up (overlapping-stream crossfade). AC asked for the result recorded in the PR — pending user signoff, noted on #1.
